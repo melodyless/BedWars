@@ -382,6 +382,12 @@
             <button class="diff-btn" data-diff="nightmare">职业噩梦 (跳劈暴击/连击)</button>
           </div>
 
+          <div class="mode-select-title" style="margin-top: 10px;">操作控制方式 (手机触控 / 电脑键鼠)：</div>
+          <div class="touch-mode-selection" style="display: flex; gap: 8px;">
+            <button id="start-touch-btn" class="control-mode-btn" type="button">📱 触控模式 (网易原版十字键/摇杆)</button>
+            <button id="start-pc-btn" class="control-mode-btn active" type="button">💻 经典键鼠模式</button>
+          </div>
+
           <div style="margin-top: 14px; text-align: center;">
             <button id="open-skin-modal-btn" class="skin-manage-btn" type="button">
               🎭 人机皮肤管理 (自定义导入 / 预设更换)
@@ -391,18 +397,25 @@
 
         <div class="start-instructions">
           <div class="inst-grid">
-            <div>• <b>WASD</b>：移动 / 奔跑</div>
-            <div>• <b>空格 (Space)</b>：跳跃 (下落<b>跳劈暴击</b>)</div>
-            <div>• <b>鼠标移动</b>：转动第一视角镜头</div>
-            <div>• <b>Shift (潜行)</b>：慢走<b>防掉虚空搭桥</b></div>
-            <div>• <b>鼠标左键</b>：挥剑攻击 / 破坏敌床</div>
-            <div>• <b>数字键 1-9 / 滚轮</b>：切换快捷栏</div>
-            <div>• <b>鼠标右键</b>：长按搭桥 / <b>蓄力射箭</b> / 使用道具</div>
-            <div>• <b>B 键 / E 键</b>：打开/关闭<b>【背包与战备仓库】</b></div>
+            <div>• <b>WASD / 虚拟按键</b>：移动 / 奔跑</div>
+            <div>• <b>空格 / 跳跃按键</b>：跳跃 (下落<b>跳劈暴击</b>)</div>
+            <div>• <b>鼠标 / 右屏滑动</b>：转动第一视角镜头</div>
+            <div>• <b>Shift / 潜行键❖</b>：慢走<b>防掉虚空搭桥</b></div>
+            <div>• <b>鼠标左键 / ⚔️按键</b>：挥剑攻击 / 破坏敌床</div>
+            <div>• <b>1-9 键 / 点击槽位</b>：切换快捷栏</div>
+            <div>• <b>鼠标右键 / 🧱按键</b>：长按搭桥 / <b>蓄力射箭</b> / 道具</div>
+            <div>• <b>B / E 键 / 🎒按钮</b>：打开/关闭<b>【背包与战备仓库】</b></div>
             <div>• <b>K 键 / 左上角</b>：打开<b>人机皮肤管理</b></div>
-            <div>• <b>T 键 / 战术按钮</b>：打开<b>队友战术分工与交流</b> (守床/捡物资/互相给东西)</div>
-            <div>• <b>Q 键</b>：丢弃手持方块/药水或身上的矿物物资给队友</div>
-            <div>• <b>对准村民右键</b>：打开<b>村民道具与药水商店</b></div>
+            <div>• <b>T 键 / 战术按钮</b>：打开<b>队友战术分工与交流</b></div>
+            <div>• <b>Q 键 / 📤丢弃按键</b>：丢弃手持物资给队友</div>
+            <div>• <b>对准村民 / 💬按钮</b>：打开<b>村民道具与药水商店</b></div>
+          </div>
+          <div class="inst-tip" style="color: #67e8f9; background: rgba(8, 145, 178, 0.2); border-left: 3px solid #22d3ee;">
+            📱 <b>网易我的世界触控手感全面支持：</b><br>
+            • <b>左手控制</b>：经典十字方向键(D-Pad) 与 360°虚拟摇杆随时一键切换；<br>
+            • <b>搭桥神器</b>：点击十字键中心【❖】<b>锁定潜行</b>，搭桥永远不失误掉虚空；按住【🧱放置/使用】向前跑即可<b>极速搭桥</b>！<br>
+            • <b>右手战斗</b>：【⚔️】攻击敌人与长按挖掘，【▲】跳跃跳劈，【🧱】手持弓箭时长按蓄力射箭，手持药水/金苹果点击使用！<br>
+            • <b>视角控制</b>：在屏幕右半边空白区域任意滑动即可丝滑转动镜头，轻点空白区域也可直接攻击！
           </div>
           <div class="inst-tip">★ <b>全新背包系统</b>：按 <b>B / E 键</b>随时展开 36 格背包仓库，支持 Shift 一键转移、自由互换与一键智能整理！</div>
           <div class="inst-tip">★ <b>全新药水系统</b>：村民商店新增<b>迅捷 II、跳跃 V、隐形药水、恢复药水</b>！手持右键即可饮用，隐身可骗过人机索敌，迅捷大幅加速！</div>
@@ -453,6 +466,7 @@
   <script src="js/bot.js?v=20261113_02"></script>
   <script src="js/teammate.js?v=20261113_02"></script>
   <script src="js/shop.js?v=20261113_02"></script>
+  <script src="js/touch.js?v=20261114_01"></script>
   <script src="js/game.js?v=20261113_02"></script>
 </body>
 </html>

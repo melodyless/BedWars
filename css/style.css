@@ -660,7 +660,7 @@ canvas#render-canvas {
   display: flex;
   gap: 8px;
 }
-.diff-btn {
+.diff-btn, .control-mode-btn {
   flex: 1;
   background: #383838;
   border: 2px solid #555555;
@@ -673,8 +673,13 @@ canvas#render-canvas {
   border-radius: 3px;
   transition: all 0.15s ease;
 }
-.diff-btn:hover {
+.diff-btn:hover, .control-mode-btn:hover {
   background: #484848;
+}
+.control-mode-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
 }
 .diff-btn.active {
   background: #b71c1c;
@@ -1942,3 +1947,662 @@ canvas#render-canvas {
 }
 
 
+
+/* ============================================================
+   Minecraft PE / NetEase Bedrock Style Touch Controls & UI
+   ============================================================ */
+
+:root {
+  --touch-opacity: 0.85;
+  --touch-btn-bg: rgba(60, 60, 60, var(--touch-opacity));
+  --touch-btn-border: rgba(220, 220, 220, 0.7);
+  --touch-btn-active: rgba(120, 120, 120, 0.95);
+  --touch-accent: #38bdf8;
+  --touch-active-green: #22c55e;
+}
+
+#touch-controls-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 60;
+  pointer-events: none;
+  touch-action: none;
+  font-family: 'Minecraft', monospace;
+  overflow: hidden;
+}
+
+#touch-controls-container.touch-disabled {
+  display: none !important;
+}
+
+/* Common Touch Button styling */
+.touch-container * {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 1. Top Touch Bar */
+.touch-top-bar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  z-index: 70;
+}
+
+.touch-top-btn {
+  background: rgba(30, 30, 30, 0.75);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+  text-shadow: 1px 1px 1px #000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: all 0.1s ease;
+}
+
+.touch-top-btn:active {
+  background: rgba(70, 70, 70, 0.9);
+  transform: scale(0.95);
+  border-color: #fff;
+}
+
+/* 2. Left Zone: Classic Minecraft D-Pad */
+.touch-left-zone {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  width: 168px;
+  height: 168px;
+  pointer-events: auto;
+  z-index: 65;
+}
+
+.touch-dpad {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.touch-dpad.hidden, .touch-joystick.hidden {
+  display: none !important;
+}
+
+.dpad-row {
+  display: flex;
+  justify-content: center;
+  height: 56px;
+}
+
+.dpad-row-mid {
+  display: flex;
+  justify-content: space-between;
+}
+
+.dpad-btn {
+  width: 56px;
+  height: 56px;
+  background: var(--touch-btn-bg);
+  border: 3px solid #222222;
+  border-top-color: #777777;
+  border-left-color: #777777;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.25), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  color: #eeeeee;
+  font-size: 22px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  touch-action: none;
+  cursor: pointer;
+  transition: background 0.05s ease, transform 0.05s ease;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.dpad-btn.active, .dpad-btn:active {
+  background: var(--touch-btn-active);
+  border-color: #ffffff;
+  transform: scale(0.96);
+  color: #38bdf8;
+  box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.5), 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+.dpad-center {
+  background: rgba(45, 45, 45, var(--touch-opacity));
+  border-radius: 6px;
+  font-size: 20px;
+  color: #aaaaaa;
+}
+
+.dpad-center.locked {
+  background: rgba(22, 101, 52, 0.95);
+  border-color: #4ade80 !important;
+  color: #4ade80 !important;
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.8), inset 0 0 6px rgba(0,0,0,0.4);
+}
+
+.dpad-sneak-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Virtual Joystick */
+.touch-joystick {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.joystick-base {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  background: rgba(40, 40, 40, var(--touch-opacity));
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.6);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  touch-action: none;
+}
+
+.joystick-thumb {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #777777 0%, #3a3a3a 100%);
+  border: 2px solid #ffffff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4);
+  position: absolute;
+  pointer-events: none;
+  transform: translate(0px, 0px);
+  transition: transform 0.03s linear;
+}
+
+.joystick-sneak-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(50, 50, 50, var(--touch-opacity));
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 18px;
+  color: #eee;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+
+.joystick-sneak-btn.locked {
+  background: rgba(22, 101, 52, 0.95);
+  border-color: #4ade80;
+  color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.8);
+}
+
+/* 3. Right Zone: Action Buttons (Bedrock PE Layout) */
+.touch-right-zone {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 220px;
+  height: 220px;
+  pointer-events: auto;
+  z-index: 65;
+}
+
+.touch-action-btn {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--touch-btn-bg);
+  border: 3px solid #222222;
+  border-top-color: #777777;
+  border-left-color: #777777;
+  box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.25), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff;
+  cursor: pointer;
+  touch-action: none;
+  transition: background 0.06s ease, transform 0.06s ease, border-color 0.06s ease;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.touch-action-btn:active, .touch-action-btn.pressed {
+  background: var(--touch-btn-active);
+  border-color: #ffffff !important;
+  transform: scale(0.92);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.touch-btn-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.touch-btn-tag {
+  font-size: 10px;
+  margin-top: 2px;
+  color: #ddd;
+  text-shadow: 1px 1px 1px #000;
+  white-space: nowrap;
+}
+
+/* Button Positions & Specific Sizes */
+/* Big Jump Button: bottom right */
+.touch-action-btn.btn-jump {
+  width: 72px;
+  height: 72px;
+  bottom: 0px;
+  right: 0px;
+  background: rgba(50, 75, 100, var(--touch-opacity));
+  border-color: #2b5278;
+  border-top-color: #60a5fa;
+  border-left-color: #60a5fa;
+}
+.touch-action-btn.btn-jump .touch-btn-icon {
+  font-size: 28px;
+  color: #93c5fd;
+}
+
+/* Attack / Break Button: middle upper */
+.touch-action-btn.btn-attack {
+  width: 64px;
+  height: 64px;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(90, 40, 40, var(--touch-opacity));
+  border-color: #551c1c;
+  border-top-color: #f87171;
+  border-left-color: #f87171;
+}
+.touch-action-btn.btn-attack .touch-btn-icon {
+  font-size: 24px;
+  color: #fca5a5;
+}
+
+/* Use / Place / Bow Button: top right */
+.touch-action-btn.btn-use {
+  width: 64px;
+  height: 64px;
+  top: 10px;
+  right: 48px;
+  background: rgba(40, 80, 50, var(--touch-opacity));
+  border-color: #174223;
+  border-top-color: #4ade80;
+  border-left-color: #4ade80;
+}
+.touch-action-btn.btn-use .touch-btn-icon {
+  font-size: 24px;
+  color: #86efac;
+}
+
+/* Sneak Toggle Button: upper left */
+.touch-action-btn.btn-sneak {
+  width: 50px;
+  height: 50px;
+  top: 15px;
+  left: 0px;
+}
+.touch-action-btn.btn-sneak.locked {
+  background: rgba(22, 101, 52, 0.95);
+  border-color: #4ade80 !important;
+  color: #4ade80;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.8);
+}
+
+/* Drop Item Button: near bottom edge */
+.touch-action-btn.btn-drop {
+  width: 48px;
+  height: 48px;
+  bottom: 96px;
+  right: 0px;
+  background: rgba(60, 50, 40, var(--touch-opacity));
+}
+
+/* 4. Floating Villager Shop Button */
+.touch-interact-btn {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
+  border: 3px solid #86efac;
+  border-radius: 28px;
+  padding: 10px 24px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), 0 0 14px rgba(34, 197, 94, 0.6);
+  text-shadow: 1px 1px 2px #000;
+  z-index: 75;
+  animation: pulseInteract 1.5s infinite ease-in-out;
+}
+
+.touch-interact-btn.hidden {
+  display: none !important;
+}
+
+.touch-interact-btn:active {
+  transform: translateX(-50%) scale(0.95);
+  background: #15803d;
+}
+
+@keyframes pulseInteract {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.05); box-shadow: 0 6px 20px rgba(34, 197, 94, 0.9); }
+}
+
+/* 5. Touch Settings Modal */
+.touch-settings-modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  pointer-events: auto;
+}
+
+.touch-settings-modal.hidden {
+  display: none !important;
+}
+
+.touch-settings-box {
+  width: 90%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #232323;
+  border: 4px solid #4a4a4a;
+  border-top-color: #888;
+  border-left-color: #888;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.85);
+  padding: 20px;
+  color: #ffffff;
+}
+
+.touch-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: bold;
+  border-bottom: 2px solid #444;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  color: #ffaa00;
+  text-shadow: 1px 1px #000;
+}
+
+.touch-settings-close-btn {
+  background: #d32f2f;
+  color: #fff;
+  border: 2px solid #f87171;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.touch-setting-item {
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.touch-setting-item label {
+  font-size: 14px;
+  color: #cccccc;
+  display: flex;
+  justify-content: space-between;
+}
+
+.setting-toggle-group {
+  display: flex;
+  gap: 8px;
+}
+
+.setting-opt-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: #374151;
+  color: #cbd5e1;
+  border: 2px solid #4b5563;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.setting-opt-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #60a5fa;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
+}
+
+.touch-setting-item input[type="range"] {
+  width: 100%;
+  accent-color: #38bdf8;
+  height: 6px;
+  background: #475569;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.touch-setting-tip {
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 3px solid #38bdf8;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.touch-setting-tip b {
+  color: #fde047;
+}
+
+/* ============================================================
+   Mobile & Touch Responsive Adaptations
+   ============================================================ */
+
+body.touch-mode-active #crosshair {
+  width: 24px;
+  height: 24px;
+}
+
+/* On mobile / touch screens, adjust HUD layout */
+@media (max-width: 960px), (hover: none) and (pointer: coarse) {
+  #scoreboard {
+    top: 50px;
+    right: 8px;
+    padding: 8px 12px;
+    min-width: 170px;
+    font-size: 12px;
+  }
+  #scoreboard-title {
+    font-size: 15px;
+  }
+  #sb-mode-title {
+    font-size: 10px;
+  }
+
+  #hud-top-actions {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    gap: 6px;
+    pointer-events: auto;
+    z-index: 70;
+  }
+  #hud-top-actions button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  /* Hotbar responsive */
+  #bottom-hud {
+    margin-bottom: 8px;
+  }
+  .hotbar-slot {
+    width: 38px;
+    height: 38px;
+    margin: 0 1px;
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+  .hotbar-slot .slot-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .hotbar-slot .slot-count {
+    font-size: 12px;
+  }
+  .hotbar-slot .slot-key {
+    display: none;
+  }
+
+  #resources-display {
+    padding: 4px 10px;
+    font-size: 13px;
+    gap: 10px;
+  }
+  .res-icon {
+    width: 14px;
+    height: 14px;
+  }
+  #status-bars {
+    width: 310px;
+  }
+
+  /* Chat box */
+  #chat-box {
+    bottom: 90px;
+    left: 10px;
+    width: 280px;
+    max-height: 140px;
+  }
+  .chat-msg {
+    font-size: 12px;
+    padding: 3px 6px;
+  }
+
+  /* Modals responsiveness */
+  .backpack-modal-dialog, .team-modal-dialog, #shop-modal, .start-box {
+    max-width: 95vw !important;
+    max-height: 90vh !important;
+    padding: 12px !important;
+  }
+  .backpack-27-grid {
+    grid-template-columns: repeat(9, 34px) !important;
+    gap: 3px !important;
+    justify-content: center;
+  }
+  .hotbar-9-grid {
+    grid-template-columns: repeat(9, 34px) !important;
+    gap: 3px !important;
+    justify-content: center;
+  }
+  .bp-slot {
+    width: 34px !important;
+    height: 34px !important;
+  }
+  .bp-slot .bp-item-icon {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  /* D-Pad / Buttons small screen scale */
+  .touch-left-zone {
+    bottom: 16px;
+    left: 16px;
+    width: 150px;
+    height: 150px;
+  }
+  .dpad-row {
+    height: 50px;
+  }
+  .dpad-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 18px;
+  }
+  .touch-right-zone {
+    bottom: 16px;
+    right: 16px;
+    width: 190px;
+    height: 190px;
+  }
+  .touch-action-btn.btn-jump {
+    width: 62px;
+    height: 62px;
+  }
+  .touch-action-btn.btn-attack {
+    width: 56px;
+    height: 56px;
+    bottom: 16px;
+    left: 12px;
+  }
+  .touch-action-btn.btn-use {
+    width: 56px;
+    height: 56px;
+    top: 8px;
+    right: 38px;
+  }
+  .touch-action-btn.btn-sneak {
+    width: 44px;
+    height: 44px;
+  }
+  .touch-action-btn.btn-drop {
+    width: 42px;
+    height: 42px;
+    bottom: 80px;
+  }
+}

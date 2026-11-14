@@ -90,6 +90,9 @@ class BedwarsGame {
       yellow: { sharpness: 0, protection: 0, forge: 1, healPool: false, trap: false }
     };
 
+    // Touch Controls System (Minecraft Bedrock / NetEase PE Style)
+    this.touchControls = (window.TouchControls) ? new window.TouchControls(this) : null;
+
     this.initThree();
     this.bindUIEvents();
     this.initGame();
@@ -170,7 +173,7 @@ class BedwarsGame {
       'nightmare': '职业噩梦人机'
     };
     const diffName = diffMap[this.selectedDifficulty] || '高手身法人机';
-    startBtn.innerHTML = `⚡ 开始战斗 [${mapName} · ${modeName} · ${diffName}] ⚡<div style="font-size: 13px; font-weight: normal; opacity: 0.9; margin-top: 2px;">(点击开始或按回车键进入游戏)</div>`;
+    startBtn.innerHTML = `⚡ 开始战斗 [${mapName} · ${modeName} · ${diffName}] ⚡<div style="font-size: 13px; font-weight: normal; opacity: 0.9; margin-top: 2px;">(点击开始 / 触屏点按 / 按回车键进入游戏)</div>`;
   }
 
   returnToMainMenu() {
@@ -263,6 +266,9 @@ class BedwarsGame {
     // 3. Player
     this.player = new Player(this.camera, this.scene, this.world);
     window.player = this.player;
+    if (this.touchControls) {
+      this.touchControls.setPlayer(this.player);
+    }
 
     // 4. Resource Generators
     this.generatorManager = new GeneratorManager(this.scene);
@@ -445,6 +451,46 @@ class BedwarsGame {
       });
     });
 
+    // Control Mode Selection (Touch vs PC Keyboard/Mouse)
+    const touchBtn = document.getElementById('start-touch-btn');
+    const pcBtn = document.getElementById('start-pc-btn');
+    const updateControlBtns = () => {
+      const isTouch = this.touchControls ? this.touchControls.enabled : false;
+      if (touchBtn) touchBtn.classList.toggle('active', isTouch);
+      if (pcBtn) pcBtn.classList.toggle('active', !isTouch);
+    };
+
+    if (touchBtn) {
+      touchBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.touchControls) {
+          this.touchControls.enabled = true;
+          localStorage.setItem('bedwars_touch_enabled', 'true');
+          this.touchControls.applyVisibility();
+          updateControlBtns();
+          if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+            window.soundManager.playDing(700);
+          }
+        }
+      });
+    }
+
+    if (pcBtn) {
+      pcBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.touchControls) {
+          this.touchControls.enabled = false;
+          localStorage.setItem('bedwars_touch_enabled', 'false');
+          this.touchControls.applyVisibility();
+          updateControlBtns();
+          if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+            window.soundManager.playDing(500);
+          }
+        }
+      });
+    }
+    updateControlBtns();
+
     const lockPointer = () => {
       try {
         if (window.soundManager && typeof window.soundManager.init === 'function') {
@@ -562,7 +608,8 @@ class BedwarsGame {
         const isShopOpen = this.shopManager && (this.shopManager.isOpen || this.shopManager.justClosed);
         const isTeamOpen = window.TeammateManager && (window.TeammateManager.isOpen || window.TeammateManager.justClosed);
         const isSkinOpen = window.SkinManager && window.SkinManager.isOpen;
-        if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen) {
+        const isTouchActive = this.touchControls && this.touchControls.enabled;
+        if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen && !isTouchActive) {
           if (resumeOverlay) resumeOverlay.style.display = 'flex';
         }
       } else {

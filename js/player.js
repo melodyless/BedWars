@@ -72,6 +72,7 @@ class Player {
       jump: false,
       sneak: false
     };
+    this.touchMoveVector = { x: 0, z: 0 };
 
     // First Person Hand & Held Item Model
     this.handMesh = null;
@@ -304,11 +305,12 @@ class Player {
       let dx = 0;
       let dy = 0;
 
+      const isTouchActive = !!(window.game && window.game.touchControls && window.game.touchControls.enabled);
       if (isLocked) {
         dx = e.movementX;
         dy = e.movementY;
-      } else if (window.game && window.game.isGameRunning && (!window.shopManager || !window.shopManager.isOpen)) {
-        // Fallback when pointer is temporarily unlocked: track delta if mouse is inside canvas
+      } else if (!isTouchActive && window.game && window.game.isGameRunning && (!window.shopManager || !window.shopManager.isOpen)) {
+        // Fallback when pointer is temporarily unlocked (PC only): track delta if mouse is inside canvas
         if (this._lastMouseX !== undefined) {
           dx = e.clientX - this._lastMouseX;
           dy = e.clientY - this._lastMouseY;
@@ -316,6 +318,8 @@ class Player {
       }
       this._lastMouseX = e.clientX;
       this._lastMouseY = e.clientY;
+
+      if (!isLocked && isTouchActive) return; // In touch mode without physical pointer lock, look is handled by touchmove
 
       if (Math.abs(dx) > 120 || Math.abs(dy) > 120) return; // Ignore window focus warp jumps
 
@@ -333,7 +337,8 @@ class Player {
       if (window.shopManager && window.shopManager.isOpen) return;
 
       const canvas = document.getElementById('render-canvas');
-      if (document.pointerLockElement !== canvas) {
+      const isTouchActive = !!(window.game && window.game.touchControls && window.game.touchControls.enabled);
+      if (document.pointerLockElement !== canvas && !isTouchActive) {
         // Any click on game area (except modals) attempts to lock pointer immediately
         if (!e.target.closest('#shop-modal') && !e.target.closest('#team-modal') && !e.target.closest('#start-screen') && !e.target.closest('#gameover-modal')) {
           try {
@@ -1518,6 +1523,12 @@ class Player {
     if (this.keys.backward) { moveX -= forwardX; moveZ -= forwardZ; }
     if (this.keys.left) { moveX -= rightX; moveZ -= rightZ; }
     if (this.keys.right) { moveX += rightX; moveZ += rightZ; }
+
+    // Support smooth 360-degree analog touch joystick input
+    if (this.touchMoveVector && (this.touchMoveVector.x !== 0 || this.touchMoveVector.z !== 0)) {
+      moveX += forwardX * this.touchMoveVector.z + rightX * this.touchMoveVector.x;
+      moveZ += forwardZ * this.touchMoveVector.z + rightZ * this.touchMoveVector.x;
+    }
 
     const moveLen = Math.hypot(moveX, moveZ);
     let moveSpeed = this.keys.sneak ? this.sneakSpeed : this.walkSpeed;
