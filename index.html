@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>起床战争 (Bedwars) · Web 3D 技术演示与个人学习项目</title>
+  <meta name="description" content="基于 WebGL / Three.js 开发的个人 3D 图形技术学习与非营利演示项目，原版手感第一人称起床战争单机人机对战 Demo。">
+  <meta name="keywords" content="Three.js, WebGL, 3D网页游戏, Bedwars, 个人技术演示">
+  <script>
+    window.__capturedErrors = [];
+    window.addEventListener('error', function(e) {
+      var errText = 'JS Error: ' + e.message + ' at ' + (e.filename || '') + ':' + e.lineno + ':' + e.colno + (e.error && e.error.stack ? '\n' + e.error.stack : '');
+      window.__capturedErrors.push(errText);
+      var div = document.getElementById('js-fatal-error');
+      if (!div) {
+        div = document.createElement('div');
+        div.id = 'js-fatal-error';
+        div.style = 'position:fixed;top:0;left:0;width:100%;background:rgba(200,0,0,0.95);color:#fff;font-size:15px;z-index:999999;padding:12px;font-family:monospace;white-space:pre-wrap;box-shadow:0 4px 12px #000;';
+        document.body ? document.body.appendChild(div) : document.documentElement.appendChild(div);
+      }
+      div.innerText = window.__capturedErrors.join('\n---\n');
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      var reason = e.reason ? (e.reason.stack || e.reason.message || e.reason) : 'Unknown rejection';
+      var errText = 'Promise Rejection: ' + reason;
+      window.__capturedErrors.push(errText);
+      var div = document.getElementById('js-fatal-error');
+      if (!div) {
+        div = document.createElement('div');
+        div.id = 'js-fatal-error';
+        div.style = 'position:fixed;top:0;left:0;width:100%;background:rgba(200,0,0,0.95);color:#fff;font-size:15px;z-index:999999;padding:12px;font-family:monospace;white-space:pre-wrap;box-shadow:0 4px 12px #000;';
+        document.body ? document.body.appendChild(div) : document.documentElement.appendChild(div);
+      }
+      div.innerText = window.__capturedErrors.join('\n---\n');
+    });
+    // Prevent browser zoom via Ctrl + Mouse Wheel, Ctrl + '+', Ctrl + '-', Ctrl + '0'
+    window.addEventListener('wheel', function(e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    window.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+' || e.key === '-' || e.key === '_' || e.key === '0')) {
+        e.preventDefault();
+      }
+    });
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=20261113_02">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="render-canvas"></canvas>
+
+    <!-- Crosshair -->
+    <div id="crosshair"></div>
+
+    <!-- Block Break Progress Bar -->
+    <div id="break-progress">
+      <div id="break-progress-bar">
+        <div id="break-progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Villager Interaction Hint -->
+    <div id="npc-hint">右键点击打开商店</div>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+      <!-- HUD Top Bar Actions -->
+      <div id="hud-top-actions">
+        <button id="hud-skin-btn" class="hud-skin-btn" type="button" title="人机皮肤管理 (K)">🎭 皮肤管理 (K)</button>
+        <button id="hud-team-btn" class="hud-team-btn" type="button" title="红队战术指挥 (T)">💬 队友战术 (T)</button>
+        <button id="hud-backpack-btn" class="hud-backpack-btn" type="button" title="打开背包 (B/E)">🎒 背包 (B/E)</button>
+      </div>
+
+      <!-- Potion Effects HUD Overlay -->
+      <div id="potion-effects-hud"></div>
+
+      <!-- Top-Right Scoreboard -->
+      <div id="scoreboard">
+        <div id="scoreboard-title">BED WARS</div>
+        <div id="sb-mode-title" style="color: #aaa; font-size: 12px; text-align: center;">布吉岛 1v1 单挑</div>
+        <div class="sb-divider"></div>
+        <div><span class="sb-label">钻石生成: </span><span id="sb-diamond-timer" class="sb-value">0:30</span></div>
+        <div><span class="sb-label">绿宝石生成: </span><span id="sb-emerald-timer" class="sb-value">0:45</span></div>
+        <div class="sb-divider"></div>
+        <div id="sb-teams-container">
+          <div class="sb-team red">
+            <span>[R] 红队 (你):</span>
+            <span id="sb-red-status" class="sb-status-alive">✔</span>
+          </div>
+          <div class="sb-team blue">
+            <span>[B] 蓝队:</span>
+            <span id="sb-blue-status" class="sb-status-alive">✔</span>
+          </div>
+        </div>
+        <div class="sb-divider"></div>
+        <div><span class="sb-label">击杀数: </span><span id="sb-kills" class="sb-value">0</span></div>
+        <div><span class="sb-label">最终击杀: </span><span id="sb-final-kills" class="sb-value">0</span></div>
+        <div><span class="sb-label">破坏床数: </span><span id="sb-beds" class="sb-value">0</span></div>
+        <div class="sb-divider"></div>
+        <div class="sb-footer">mc.bedwars.play</div>
+      </div>
+
+      <!-- Chat & Kill Feed -->
+      <div id="chat-box"></div>
+
+      <!-- Bottom Bar: Resources, Health, Armor, Hotbar -->
+      <div id="bottom-hud">
+        <!-- Resource counters -->
+        <div id="resources-display">
+          <div class="res-item"><span class="res-icon res-iron"></span> 铁锭: <span id="res-iron-count">0</span></div>
+          <div class="res-item"><span class="res-icon res-gold"></span> 金锭: <span id="res-gold-count">0</span></div>
+          <div class="res-item"><span class="res-icon res-diamond"></span> 钻石: <span id="res-diamond-count">0</span></div>
+          <div class="res-item"><span class="res-icon res-emerald"></span> 绿宝石: <span id="res-emerald-count">0</span></div>
+        </div>
+
+        <!-- Health & Armor status bars -->
+        <div id="status-bars">
+          <div id="health-container"></div>
+          <div id="armor-container"></div>
+        </div>
+
+        <!-- 9 Slots Hotbar -->
+        <div id="hotbar"></div>
+      </div>
+    </div>
+
+    <!-- Center Big Title Banners -->
+    <div id="big-banner">
+      <div id="banner-title"></div>
+      <div id="banner-subtitle"></div>
+    </div>
+
+    <!-- Respawn Overlay -->
+    <div id="respawn-overlay">
+      <div id="respawn-title">你死了！</div>
+      <div id="respawn-timer">将在 5 秒后复活...</div>
+    </div>
+
+    <!-- Resume / Focus Overlay -->
+    <div id="resume-overlay">
+      <div class="resume-box">
+        <div class="resume-title">⏸️ 鼠标未锁定 / 游戏已暂停</div>
+        <div class="resume-btn-group">
+          <button id="resume-game-btn" class="resume-action-btn">▶ 继续战斗 (锁定鼠标)</button>
+          <button id="resume-menu-btn" class="resume-action-btn secondary-action">⚙️ 重新选择模式与地图</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Villager Shop Modal -->
+    <div id="shop-modal">
+      <div id="shop-header">
+        <span>村民道具商人 - 快速购买</span>
+        <button id="shop-close-btn">✖ 关闭 (ESC)</button>
+      </div>
+      <div id="shop-categories">
+        <div class="shop-tab active" data-category="blocks">方块</div>
+        <div class="shop-tab" data-category="weapons">武器</div>
+        <div class="shop-tab" data-category="armor">盔甲</div>
+        <div class="shop-tab" data-category="tools">工具</div>
+        <div class="shop-tab" data-category="potions">🧪 药水</div>
+        <div class="shop-tab" data-category="utilities">实用道具</div>
+        <div class="shop-tab" data-category="upgrades">💎 钻石升级</div>
+      </div>
+      <div id="shop-items-grid"></div>
+    </div>
+
+    <!-- Teammate Tactical Communication & Role Assignment Modal -->
+    <div id="team-modal" class="team-modal-container">
+      <div class="team-modal-dialog">
+        <!-- Header -->
+        <div class="team-modal-header">
+          <div class="team-modal-title">
+            <span>💬 红队战术交流指挥台</span>
+            <span class="team-badge">双人配合</span>
+          </div>
+          <button id="team-modal-close" class="team-modal-close-btn" type="button" title="关闭 (ESC / T)">✖</button>
+        </div>
+
+        <!-- Teammate Live Status Card -->
+        <div id="team-modal-status-card" class="team-status-card"></div>
+
+        <!-- Section 1: Role Division (决定谁来守床捡物资) -->
+        <div class="team-section-title">
+          <span>🎯 战术分工 (决定谁来守床捡物资)</span>
+          <span class="team-section-sub">点击卡片即可切换队友的战略分工职责</span>
+        </div>
+        <div class="team-roles-grid">
+          <div class="role-card" data-role="DEFEND_BED">
+            <div class="role-icon">🛡️</div>
+            <div class="role-info">
+              <div class="role-name">你去守床 <span class="role-tag-rec">推荐配合</span></div>
+              <div class="role-desc">你放心外出捡物资，队友死守红队床位、封箱补床、巡逻截杀来犯敌人</div>
+            </div>
+          </div>
+          <div class="role-card" data-role="GATHER_RESOURCES">
+            <div class="role-icon">💎</div>
+            <div class="role-info">
+              <div class="role-name">你去外岛捡物资 <span class="role-tag-rec">推荐配合</span></div>
+              <div class="role-desc">你在基地守床，队友直奔钻石岛与中路抢绿宝石，回城共享资源与升级科技</div>
+            </div>
+          </div>
+          <div class="role-card" data-role="ATTACK_BED">
+            <div class="role-icon">⚔️</div>
+            <div class="role-info">
+              <div class="role-name">你去突袭敌方床</div>
+              <div class="role-desc">你在基地防守支援，队友带足羊毛强渡虚空搭路，直扑敌营强拆敌床</div>
+            </div>
+          </div>
+          <div class="role-card" data-role="FOLLOW">
+            <div class="role-icon">👥</div>
+            <div class="role-info">
+              <div class="role-name">跟我来 (随行掩护)</div>
+              <div class="role-desc">队友形影不离跟随在你身后，集火相同目标并提供远程弓箭掩护</div>
+            </div>
+          </div>
+          <div class="role-card" data-role="AUTO">
+            <div class="role-icon">🤖</div>
+            <div class="role-info">
+              <div class="role-name">自由战术 (自主决断)</div>
+              <div class="role-desc">队友根据全场敌我态势与资源情况，自主智能决定守家、收集或突袭</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Resource & Item Sharing (互相给东西) -->
+        <div class="team-section-title">
+          <span>🎁 物资共享 (互相赠送与索取物资)</span>
+          <span class="team-section-sub">将身上的资源转交给队友，或找队友索取战备物资</span>
+        </div>
+        <div class="team-exchange-box">
+          <div class="exchange-col">
+            <div class="exchange-label">📤 赠送物资给队友：</div>
+            <div class="exchange-btns">
+              <button class="give-btn" data-type="iron" data-amount="10" type="button">赠送 10 铁</button>
+              <button class="give-btn" data-type="gold" data-amount="5" type="button">赠送 5 金</button>
+              <button class="give-btn" data-type="diamond" data-amount="2" type="button">赠送 2 钻</button>
+              <button class="give-btn" data-type="emerald" data-amount="1" type="button">赠送 1 绿</button>
+              <button class="give-btn" data-type="wool" data-amount="16" type="button">赠送 16 羊毛</button>
+            </div>
+          </div>
+          <div class="exchange-col">
+            <div class="exchange-label">📥 找队友索取物资：</div>
+            <div class="exchange-btns">
+              <button class="req-btn" data-type="iron" data-amount="5" type="button">索要 5 铁锭</button>
+              <button class="req-btn" data-type="gold" data-amount="2" type="button">索要 2 金锭</button>
+              <button class="req-btn" data-type="diamond" data-amount="2" type="button">索要 2 钻石</button>
+              <button class="req-btn" data-type="emerald" data-amount="1" type="button">索要 1 绿宝石</button>
+              <button class="req-btn" data-type="wool" data-amount="16" type="button">索要 16 羊毛</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Tactical Communication & Chat (和队友交流) -->
+        <div class="team-section-title">
+          <span>💬 战术交流 & 自然语言喊话</span>
+          <span class="team-section-sub">点击快捷战术指令或输入文字与队友交谈</span>
+        </div>
+        <div class="team-quick-chat">
+          <span class="quick-pill" data-text="你去守床，人在床在！">🛡️ 你去守床！</span>
+          <span class="quick-pill" data-text="你去外岛抢夺钻石和绿宝石！">💎 快去抢资源！</span>
+          <span class="quick-pill" data-text="趁现在快去拆了敌方的床！">⚔️ 快去偷家！</span>
+          <span class="quick-pill" data-text="跟我来，掩护我！">👥 跟我集合！</span>
+          <span class="quick-pill" data-text="给我点铁锭买装备！">🤲 给我点铁！</span>
+          <span class="quick-pill" data-text="别打了，快撤回基地！">🏃 快撤退！</span>
+          <span class="quick-pill" data-text="干得漂亮，太给力了！">👍 太强了！</span>
+        </div>
+        <div class="team-chat-input-bar">
+          <input type="text" id="team-chat-input" placeholder="输入任何想对队友说的话 (例如: 守床、去捡钻石、给我铁、跟我来...)" />
+          <button id="team-chat-send-btn" type="button">发送战术指令 (Enter)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player Backpack & Inventory Modal -->
+    <div id="backpack-modal" class="backpack-modal-container">
+      <div class="backpack-modal-dialog">
+        <!-- Header -->
+        <div class="backpack-modal-header">
+          <div class="backpack-modal-title">
+            <span>🎒 史诗背包与战备仓库 (Minecraft Inventory)</span>
+            <span class="backpack-hotkey-badge">快捷键 B / E</span>
+          </div>
+          <button id="backpack-close-btn" class="backpack-close-btn" type="button" title="关闭 (B / E / ESC)">✖</button>
+        </div>
+
+        <!-- Player Status Bar -->
+        <div class="backpack-player-bar">
+          <div class="bp-stat-pill" id="bp-armor-stat">🛡️ 盔甲等级: <span>无护甲</span></div>
+          <div class="bp-stat-pill" id="bp-health-stat">💖 生命值: <span>20 / 20</span></div>
+          <div class="bp-stat-pill" id="bp-effects-stat">✨ 药水增益: <span>无</span></div>
+          <div class="bp-resources-pill">
+            <span class="bp-res"><span class="res-icon res-iron"></span> <b id="bp-iron">0</b></span>
+            <span class="bp-res"><span class="res-icon res-gold"></span> <b id="bp-gold">0</b></span>
+            <span class="bp-res"><span class="res-icon res-diamond"></span> <b id="bp-diamond">0</b></span>
+            <span class="bp-res"><span class="res-icon res-emerald"></span> <b id="bp-emerald">0</b></span>
+          </div>
+        </div>
+
+        <!-- Section: Main Backpack Storage (27 slots) -->
+        <div class="backpack-section-title">
+          <span>📦 主背包存储区 (27 格)</span>
+          <span class="backpack-section-sub">单击选中物品后点击目标槽位可交换，Shift+单击快速移入快捷栏，右键直接使用/饮用</span>
+        </div>
+        <div id="backpack-grid" class="minecraft-grid backpack-27-grid"></div>
+
+        <!-- Section: Hotbar Mirror (9 slots) -->
+        <div class="backpack-section-title" style="margin-top: 14px;">
+          <span>⚡ 底部快捷栏 (1 - 9 键随手使用)</span>
+          <span class="backpack-section-sub">高亮标框为当前手持的槽位</span>
+        </div>
+        <div id="backpack-hotbar-grid" class="minecraft-grid hotbar-9-grid"></div>
+
+        <!-- Footer Actions Bar -->
+        <div class="backpack-footer">
+          <div class="backpack-action-btns">
+            <button id="bp-btn-sort" class="bp-action-btn btn-sort" type="button">🧹 一键智能整理</button>
+            <button id="bp-btn-drop" class="bp-action-btn btn-drop" type="button">🗑️ 丢弃选中物品</button>
+          </div>
+          <div class="backpack-hint-text">
+            💡 提示：按 <b>B</b> 或 <b>E</b> 键随时开启/关闭背包 | 支持跨槽位交换、堆叠、右键快速使用药水
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start / Instruction Screen -->
+    <div id="start-screen">
+      <div class="start-box">
+        <div class="start-title">我的世界：起床战争</div>
+        <div class="start-subtitle">原版手感 · 第一人称 · 智能高阶人机对战</div>
+
+        <!-- Mode & Difficulty Selection -->
+        <div class="mode-select-section">
+          <div class="mode-select-title">选择战场地图：</div>
+          <div class="map-options-grid">
+            <button class="map-btn active" data-map="boogie">
+              <span class="map-name">🌴 布吉浮岛</span>
+              <span class="map-desc">经典群岛 · 凉亭中岛</span>
+            </button>
+            <button class="map-btn" data-map="castle">
+              <span class="map-name">🏰 城堡要塞</span>
+              <span class="map-desc">石砖城寨 · 箭塔要塞</span>
+            </button>
+            <button class="map-btn" data-map="nether">
+              <span class="map-name">🔥 地狱熔岩</span>
+              <span class="map-desc">下界深渊 · 烈焰祭坛</span>
+            </button>
+            <button class="map-btn" data-map="end">
+              <span class="map-name">🌌 虚空末地</span>
+              <span class="map-desc">末地星陨 · 紫珀神殿</span>
+            </button>
+          </div>
+
+          <div class="mode-select-title" style="margin-top: 10px;">选择游戏对战模式：</div>
+          <div class="mode-options-grid">
+            <button class="mode-btn active" data-mode="2teams" data-teamsize="1">
+              <span class="mode-name">经典单挑 1v1</span>
+              <span class="mode-desc">2队 (红队 vs 蓝队)</span>
+            </button>
+            <button class="mode-btn" data-mode="2teams" data-teamsize="2">
+              <span class="mode-name">双人配合 2v2</span>
+              <span class="mode-desc">红队(双人) vs 蓝队(双人)</span>
+            </button>
+            <button class="mode-btn" data-mode="4teams" data-teamsize="1">
+              <span class="mode-name">四队单挑 1v1v1v1</span>
+              <span class="mode-desc">4队混战 (红/蓝/绿/黄)</span>
+            </button>
+            <button class="mode-btn" data-mode="4teams" data-teamsize="2">
+              <span class="mode-name">四队双人 2v2v2v2</span>
+              <span class="mode-desc">8人史诗军团混战</span>
+            </button>
+          </div>
+
+          <div class="mode-select-title" style="margin-top: 10px;">人机难度与身法：</div>
+          <div class="difficulty-options">
+            <button class="diff-btn" data-diff="normal">普通人机</button>
+            <button class="diff-btn active" data-diff="hard">高手人机 (环绕身法)</button>
+            <button class="diff-btn" data-diff="nightmare">职业噩梦 (跳劈暴击/连击)</button>
+          </div>
+
+          <div style="margin-top: 14px; text-align: center;">
+            <button id="open-skin-modal-btn" class="skin-manage-btn" type="button">
+              🎭 人机皮肤管理 (自定义导入 / 预设更换)
+            </button>
+          </div>
+        </div>
+
+        <div class="start-instructions">
+          <div class="inst-grid">
+            <div>• <b>WASD</b>：移动 / 奔跑</div>
+            <div>• <b>空格 (Space)</b>：跳跃 (下落<b>跳劈暴击</b>)</div>
+            <div>• <b>鼠标移动</b>：转动第一视角镜头</div>
+            <div>• <b>Shift (潜行)</b>：慢走<b>防掉虚空搭桥</b></div>
+            <div>• <b>鼠标左键</b>：挥剑攻击 / 破坏敌床</div>
+            <div>• <b>数字键 1-9 / 滚轮</b>：切换快捷栏</div>
+            <div>• <b>鼠标右键</b>：长按搭桥 / <b>蓄力射箭</b> / 使用道具</div>
+            <div>• <b>B 键 / E 键</b>：打开/关闭<b>【背包与战备仓库】</b></div>
+            <div>• <b>K 键 / 左上角</b>：打开<b>人机皮肤管理</b></div>
+            <div>• <b>T 键 / 战术按钮</b>：打开<b>队友战术分工与交流</b> (守床/捡物资/互相给东西)</div>
+            <div>• <b>Q 键</b>：丢弃手持方块/药水或身上的矿物物资给队友</div>
+            <div>• <b>对准村民右键</b>：打开<b>村民道具与药水商店</b></div>
+          </div>
+          <div class="inst-tip">★ <b>全新背包系统</b>：按 <b>B / E 键</b>随时展开 36 格背包仓库，支持 Shift 一键转移、自由互换与一键智能整理！</div>
+          <div class="inst-tip">★ <b>全新药水系统</b>：村民商店新增<b>迅捷 II、跳跃 V、隐形药水、恢复药水</b>！手持右键即可饮用，隐身可骗过人机索敌，迅捷大幅加速！</div>
+          <div class="inst-tip">★ <b>队友战术指挥</b>：按 T 键随时与队友交流，决定【谁来守床、谁去外岛抢钻石绿宝石】，支持一键互赠互取物资与自然语言战术喊话！</div>
+        </div>
+        <button id="start-btn" class="start-btn">⚡ 开始战斗 (锁定鼠标 / 按回车开始) ⚡</button>
+
+        <!-- Compliance & Legal Notice Footer -->
+        <div class="compliance-footer">
+          <div class="compliance-disclaimer">
+            <span>📌 <b>合规与免责声明</b>：本站仅为个人 WebGL / 3D 图形技术学习与非营利演示 Demo，无任何充值内购或商业运营行为。</span>
+            <span>游戏机制灵感来源于 Minecraft 社区，相关题材与版权归原权利人所有。</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameover-modal">
+      <div id="modal-title" class="modal-title"></div>
+      <div id="modal-stats" class="modal-stats"></div>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="restart-btn" class="start-btn" style="flex: 1;">再来一局</button>
+        <button id="reselect-mode-btn" class="start-btn" style="flex: 1; background: #2b5278; border-color: #173859;">⚙️ 重新选择模式</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function triggerGameStart() {
+      var screen = document.getElementById('start-screen');
+      if (screen) screen.style.display = 'none';
+      if (window.game && typeof window.game.startGameDirect === 'function') {
+        window.game.startGameDirect();
+      }
+    }
+  </script>
+
+  <!-- Scripts -->
+  <script src="libs/three.min.js?v=20261113_02"></script>
+  <script src="js/audio.js?v=20261113_02"></script>
+  <script src="js/textures.js?v=20261113_02"></script>
+  <script src="js/skins.js?v=20261113_02"></script>
+  <script src="js/weapons.js?v=20261113_02"></script>
+  <script src="js/world.js?v=20261113_02"></script>
+  <script src="js/generators.js?v=20261113_02"></script>
+  <script src="js/player.js?v=20261113_02"></script>
+  <script src="js/bot.js?v=20261113_02"></script>
+  <script src="js/teammate.js?v=20261113_02"></script>
+  <script src="js/shop.js?v=20261113_02"></script>
+  <script src="js/game.js?v=20261113_02"></script>
+</body>
+</html>

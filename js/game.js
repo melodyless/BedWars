@@ -1,0 +1,924 @@
+// Bedwars Main Game Coordinator & Game Loop with Multi-Team & Multi-Player Support
+class BedwarsGame {
+  constructor() {
+    this.container = document.getElementById('game-container');
+    this.canvas = document.getElementById('render-canvas');
+
+    this.scene = null;
+    this.camera = null;
+    this.renderer = null;
+
+    this.world = null;
+    this.player = null;
+    this.bots = [];
+    this.generatorManager = null;
+    this.shopManager = null;
+
+    // Game Mode Options:
+    // mode: '2teams' (Red vs Blue) or '4teams' (Red, Blue, Green, Yellow)
+    // teamSize: 1 (singles) or 2 (doubles)
+    // difficulty: 'normal', 'hard', 'nightmare'
+    // map: 'boogie' (布吉浮岛), 'castle' (城堡要塞), 'nether' (地狱熔岩), 'end' (虚空末地)
+    this.selectedMode = '2teams';
+    this.selectedTeamSize = 1;
+    this.selectedDifficulty = 'hard';
+    this.selectedMap = 'boogie';
+    this.currentMap = 'boogie';
+    this.teams = ['red', 'blue'];
+
+    this.mapThemes = {
+      boogie: {
+        name: '布吉浮岛',
+        sky: 0x87ceeb,
+        fog: 0xa0d8ef,
+        fogDensity: 0.0055,
+        ambient: 0xffffff,
+        ambientInt: 0.72,
+        sun: 0xfffaed,
+        sunInt: 0.85
+      },
+      castle: {
+        name: '城堡要塞',
+        sky: 0x5a7c99,
+        fog: 0x7692ad,
+        fogDensity: 0.0060,
+        ambient: 0xd4e2ee,
+        ambientInt: 0.70,
+        sun: 0xffe9cf,
+        sunInt: 0.90
+      },
+      nether: {
+        name: '地狱熔岩',
+        sky: 0x280606,
+        fog: 0x3d0b0b,
+        fogDensity: 0.0080,
+        ambient: 0xff9977,
+        ambientInt: 0.65,
+        sun: 0xff5533,
+        sunInt: 0.95
+      },
+      end: {
+        name: '虚空末地',
+        sky: 0x0c0714,
+        fog: 0x180d28,
+        fogDensity: 0.0070,
+        ambient: 0xc8a4e8,
+        ambientInt: 0.60,
+        sun: 0xe0c0ff,
+        sunInt: 0.80
+      }
+    };
+
+    this.isGameRunning = false;
+    this.lastTime = performance.now();
+
+    // Stats
+    this.matchTime = 0;
+    this.diamondTimer = 12;
+    this.emeraldTimer = 15;
+    this.kills = 0;
+    this.finalKills = 0;
+    this.bedsBroken = 0;
+    this.sbTimer = 0;
+    this.healPoolTimer = 0;
+
+    // Team Upgrades (Purchased with Diamonds)
+    this.teamUpgrades = {
+      red: { sharpness: 0, protection: 0, forge: 1, healPool: false, trap: false },
+      blue: { sharpness: 0, protection: 0, forge: 1, healPool: false, trap: false },
+      green: { sharpness: 0, protection: 0, forge: 1, healPool: false, trap: false },
+      yellow: { sharpness: 0, protection: 0, forge: 1, healPool: false, trap: false }
+    };
+
+    this.initThree();
+    this.bindUIEvents();
+    this.initGame();
+  }
+
+  initThree() {
+    // 1. Scene
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x87ceeb); // Minecraft sky blue
+    this.scene.fog = new THREE.FogExp2(0xa0d8ef, 0.012);
+
+    // 2. Camera
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    this.scene.add(this.camera);
+
+    // 3. Renderer
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: false,
+      powerPreference: 'high-performance'
+    });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    this.renderer.shadowMap.enabled = false;
+
+    // 4. Lighting
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+    this.scene.add(this.ambientLight);
+
+    this.sunLight = new THREE.DirectionalLight(0xfffaed, 0.85);
+    this.sunLight.position.set(40, 60, 20);
+    this.scene.add(this.sunLight);
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  }
+
+  applyMapAtmosphere(mapType = 'boogie') {
+    const theme = this.mapThemes[mapType] || this.mapThemes.boogie;
+    if (this.scene) {
+      this.scene.background = new THREE.Color(theme.sky);
+      this.scene.fog = new THREE.FogExp2(theme.fog, theme.fogDensity);
+    }
+    if (this.ambientLight) {
+      this.ambientLight.color.setHex(theme.ambient);
+      this.ambientLight.intensity = theme.ambientInt;
+    }
+    if (this.sunLight) {
+      this.sunLight.color.setHex(theme.sun);
+      this.sunLight.intensity = theme.sunInt;
+    }
+  }
+
+  initGame() {
+    this.setupMode(this.selectedMode, this.selectedTeamSize, this.selectedDifficulty, this.selectedMap);
+    this.updateStartButtonSummary();
+  }
+
+  updateStartButtonSummary() {
+    const startBtn = document.getElementById('start-btn');
+    if (!startBtn) return;
+    const modeName = this.selectedMode === '4teams' ?
+      (this.selectedTeamSize === 2 ? '四队双人 2v2v2v2' : '四队单挑 1v1v1v1') :
+      (this.selectedTeamSize === 2 ? '双人配合 2v2' : '经典单挑 1v1');
+    const mapName = (this.mapThemes[this.selectedMap] && this.mapThemes[this.selectedMap].name) || '布吉浮岛';
+    const diffMap = {
+      'normal': '普通人机',
+      'hard': '高手身法人机',
+      'nightmare': '职业噩梦人机'
+    };
+    const diffName = diffMap[this.selectedDifficulty] || '高手身法人机';
+    startBtn.innerHTML = `⚡ 开始战斗 [${mapName} · ${modeName} · ${diffName}] ⚡<div style="font-size: 13px; font-weight: normal; opacity: 0.9; margin-top: 2px;">(点击开始或按回车键进入游戏)</div>`;
+  }
+
+  returnToMainMenu() {
+    this.isGameRunning = false;
+    if (document.pointerLockElement) {
+      try {
+        document.exitPointerLock();
+      } catch (err) {}
+    }
+    const resumeOverlay = document.getElementById('resume-overlay');
+    if (resumeOverlay) resumeOverlay.style.display = 'none';
+    const gameoverModal = document.getElementById('gameover-modal');
+    if (gameoverModal) gameoverModal.style.display = 'none';
+    const shopModal = document.getElementById('shop-modal');
+    if (shopModal) shopModal.style.display = 'none';
+    const teamModal = document.getElementById('team-modal');
+    if (teamModal) teamModal.style.display = 'none';
+    if (window.TeammateManager) window.TeammateManager.isOpen = false;
+    const startScreen = document.getElementById('start-screen');
+    if (startScreen) startScreen.style.display = 'flex';
+
+    this.setupMode(this.selectedMode, this.selectedTeamSize, this.selectedDifficulty, this.selectedMap);
+    this.updateStartButtonSummary();
+    if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+      window.soundManager.playDing(500);
+    }
+  }
+
+  setupMode(mode = '2teams', teamSize = 1, difficulty = 'hard', mapType = null) {
+    this.selectedMode = mode;
+    this.selectedTeamSize = teamSize;
+    this.selectedDifficulty = difficulty;
+    if (mapType) this.selectedMap = mapType;
+
+    this.currentMode = mode;
+    this.currentTeamSize = teamSize;
+    this.currentDifficulty = difficulty;
+    this.currentMap = this.selectedMap || 'boogie';
+
+    this.applyMapAtmosphere(this.currentMap);
+
+    // 1. Clear previous entities from scene
+    if (this.world) {
+      if (typeof this.world.clear === 'function') {
+        this.world.clear();
+      } else if (this.world.voxelMap) {
+        for (const b of this.world.voxelMap.values()) {
+          if (b.mesh) this.scene.remove(b.mesh);
+        }
+        this.world.voxelMap.clear();
+      }
+    }
+    if (this.world && this.world.particles) {
+      for (const p of this.world.particles) {
+        if (p.mesh) this.scene.remove(p.mesh);
+      }
+      this.world.particles = [];
+    }
+
+    if (this.bots) {
+      for (const bot of this.bots) {
+        if (bot.group) this.scene.remove(bot.group);
+      }
+    }
+    this.bots = [];
+
+    if (this.generatorManager) {
+      this.generatorManager.clearAll();
+    }
+
+    if (this.shopManager && this.shopManager.villagers) {
+      for (const v of this.shopManager.villagers) {
+        if (v.group) this.scene.remove(v.group);
+      }
+      this.shopManager.villagers = [];
+    }
+
+    if (this.player) {
+      if (typeof this.player.destroy === 'function') {
+        this.player.destroy();
+      } else if (this.player.handGroup) {
+        this.camera.remove(this.player.handGroup);
+      }
+    }
+
+    // 2. Voxel World
+    this.world = new VoxelWorld(this.scene);
+    this.world.generateWorld(mode, this.currentMap);
+
+    // 3. Player
+    this.player = new Player(this.camera, this.scene, this.world);
+    window.player = this.player;
+
+    // 4. Resource Generators
+    this.generatorManager = new GeneratorManager(this.scene);
+    this.generators = this.generatorManager; // Alias
+    this.generatorManager.initSpawners(mode);
+
+    // 5. Shop Manager (reuse existing instance to prevent duplicate DOM events)
+    if (!this.shopManager) {
+      this.shopManager = new ShopManager(this.scene, this.player);
+    } else {
+      this.shopManager.player = this.player;
+    }
+    this.shopManager.initVillagerNPCs(mode);
+    window.shopManager = this.shopManager;
+
+    // 6. Spawn Bots based on Mode and Team Size
+    if (mode === '4teams') {
+      this.teams = ['red', 'blue', 'green', 'yellow'];
+
+      if (teamSize === 1) {
+        // 4 teams, 1 player per team
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_1', name: '蓝队人机', team: 'blue', difficulty,
+          spawnPos: { x: 0, y: 0.6, z: -56 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'green_1', name: '绿队人机', team: 'green', difficulty,
+          spawnPos: { x: 56, y: 0.6, z: 0 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'yellow_1', name: '黄队人机', team: 'yellow', difficulty,
+          spawnPos: { x: -56, y: 0.6, z: 0 }
+        }));
+      } else {
+        // 4 teams, 2 players per team (Player + 1 Red Teammate vs 2 Blue vs 2 Green vs 2 Yellow)
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'red_mate', name: '红队队友', team: 'red', difficulty,
+          spawnPos: { x: 2, y: 0.6, z: 56 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_1', name: '蓝队 1号', team: 'blue', difficulty,
+          spawnPos: { x: -2, y: 0.6, z: -56 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_2', name: '蓝队 2号', team: 'blue', difficulty,
+          spawnPos: { x: 2, y: 0.6, z: -56 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'green_1', name: '绿队 1号', team: 'green', difficulty,
+          spawnPos: { x: 56, y: 0.6, z: -2 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'green_2', name: '绿队 2号', team: 'green', difficulty,
+          spawnPos: { x: 56, y: 0.6, z: 2 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'yellow_1', name: '黄队 1号', team: 'yellow', difficulty,
+          spawnPos: { x: -56, y: 0.6, z: -2 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'yellow_2', name: '黄队 2号', team: 'yellow', difficulty,
+          spawnPos: { x: -56, y: 0.6, z: 2 }
+        }));
+      }
+    } else {
+      // 2 Teams Mode (Red vs Blue)
+      this.teams = ['red', 'blue'];
+
+      if (teamSize === 1) {
+        // 1v1
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_1', name: '蓝队人机', team: 'blue', difficulty,
+          spawnPos: { x: 0, y: 0.6, z: -56 }
+        }));
+      } else {
+        // 2v2 (Player + Red teammate vs 2 Blue bots)
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'red_mate', name: '红队队友', team: 'red', difficulty,
+          spawnPos: { x: 2, y: 0.6, z: 56 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_1', name: '蓝队 1号', team: 'blue', difficulty,
+          spawnPos: { x: -2, y: 0.6, z: -56 }
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_2', name: '蓝队 2号', team: 'blue', difficulty,
+          spawnPos: { x: 2, y: 0.6, z: -56 }
+        }));
+      }
+    }
+
+    window.bots = this.bots;
+    window.bot = this.bots[0];
+
+    // Refresh bot skins
+    if (window.SkinManager && typeof window.SkinManager.refreshAllBots === 'function') {
+      window.SkinManager.refreshAllBots();
+    }
+
+    // Update scoreboard title
+    const modeTitleEl = document.getElementById('sb-mode-title');
+    if (modeTitleEl) {
+      const modeName = mode === '4teams' ?
+        (teamSize === 2 ? '四队双人 2v2v2v2' : '四队单挑 1v1v1v1') :
+        (teamSize === 2 ? '双人配合 2v2' : '经典单挑 1v1');
+      const mapName = (this.mapThemes[this.currentMap] && this.mapThemes[this.currentMap].name) || '布吉浮岛';
+      modeTitleEl.innerText = `${mapName} · ${modeName}`;
+    }
+
+    this.updateScoreboard();
+    if (window.TeammateManager && window.TeammateManager.isOpen) {
+      window.TeammateManager.renderModal();
+    }
+  }
+
+  bindUIEvents() {
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('start-btn');
+    const resumeOverlay = document.getElementById('resume-overlay');
+
+    // Initialize Skin Management UI
+    if (window.SkinManager && typeof window.SkinManager.initUI === 'function') {
+      window.SkinManager.initUI();
+    }
+
+    // Initialize Teammate Tactical System UI
+    if (window.TeammateManager && typeof window.TeammateManager.init === 'function') {
+      window.TeammateManager.init();
+    }
+
+    // Map Selection Buttons with immediate sound & live scene preview
+    document.querySelectorAll('.map-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedMap = btn.dataset.map;
+        if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+          window.soundManager.playDing(600);
+        }
+        this.updateStartButtonSummary();
+        if (!this.isGameRunning) {
+          this.setupMode(this.selectedMode, this.selectedTeamSize, this.selectedDifficulty, this.selectedMap);
+        }
+      });
+    });
+
+    // Mode Selection Buttons with immediate sound & live scene preview
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedMode = btn.dataset.mode;
+        this.selectedTeamSize = parseInt(btn.dataset.teamsize);
+        if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+          window.soundManager.playDing(600);
+        }
+        this.updateStartButtonSummary();
+        if (!this.isGameRunning) {
+          this.setupMode(this.selectedMode, this.selectedTeamSize, this.selectedDifficulty, this.selectedMap);
+        }
+      });
+    });
+
+    // Difficulty Selection Buttons with immediate sound & live scene preview
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedDifficulty = btn.dataset.diff;
+        if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+          window.soundManager.playDing(600);
+        }
+        this.updateStartButtonSummary();
+        if (!this.isGameRunning) {
+          this.setupMode(this.selectedMode, this.selectedTeamSize, this.selectedDifficulty, this.selectedMap);
+        }
+      });
+    });
+
+    const lockPointer = () => {
+      try {
+        if (window.soundManager && typeof window.soundManager.init === 'function') {
+          window.soundManager.init();
+        }
+        if (document.pointerLockElement !== this.canvas) {
+          const promise = this.canvas.requestPointerLock();
+          if (promise && typeof promise.catch === 'function') {
+            promise.catch(() => {});
+          }
+        }
+      } catch (e) {
+        console.warn('Pointer lock request ignored:', e);
+      }
+    };
+
+    const startGame = () => {
+      if (this.isGameRunning) return;
+      this.isGameRunning = true;
+
+      if (startScreen) startScreen.style.display = 'none';
+
+      // Re-setup only if options changed from what was initially constructed
+      if (this.currentMode !== this.selectedMode ||
+          this.currentTeamSize !== this.selectedTeamSize ||
+          this.currentDifficulty !== this.selectedDifficulty ||
+          this.currentMap !== this.selectedMap) {
+        try {
+          this.setupMode(this.selectedMode, this.selectedTeamSize, this.selectedDifficulty, this.selectedMap);
+        } catch (err) {
+          console.error('Error during setupMode:', err);
+        }
+      }
+
+      this.lastTime = performance.now();
+      lockPointer();
+
+      this.addChatMessage('§a[起床战争] 游戏正式开始！');
+      this.addChatMessage('§e保护红队的床，破坏敌方的床，将所有敌人淘汰出局！');
+    };
+
+    this.startGameDirect = startGame;
+
+    if (startBtn) {
+      startBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        startGame();
+      });
+    }
+
+    // Space or Enter key on the start screen launches the match
+    window.addEventListener('keydown', (e) => {
+      if (!this.isGameRunning && startScreen && startScreen.style.display !== 'none') {
+        if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          startGame();
+        }
+      }
+    });
+
+    if (resumeOverlay) {
+      resumeOverlay.addEventListener('click', (e) => {
+        if (e.target === resumeOverlay) {
+          resumeOverlay.style.display = 'none';
+          lockPointer();
+        }
+      });
+    }
+
+    const resumeGameBtn = document.getElementById('resume-game-btn');
+    if (resumeGameBtn) {
+      resumeGameBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (resumeOverlay) resumeOverlay.style.display = 'none';
+        lockPointer();
+      });
+    }
+
+    const resumeMenuBtn = document.getElementById('resume-menu-btn');
+    if (resumeMenuBtn) {
+      resumeMenuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.returnToMainMenu();
+      });
+    }
+
+    const reselectModeBtn = document.getElementById('reselect-mode-btn');
+    if (reselectModeBtn) {
+      reselectModeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.returnToMainMenu();
+      });
+    }
+
+    this.container.addEventListener('click', (e) => {
+      const isShopOpen = this.shopManager && this.shopManager.isOpen;
+      const isTeamOpen = window.TeammateManager && window.TeammateManager.isOpen;
+      const isSkinOpen = window.SkinManager && window.SkinManager.isOpen;
+      if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen && document.pointerLockElement !== this.canvas) {
+        if (!e.target.closest('#shop-modal') && !e.target.closest('#team-modal') && !e.target.closest('#start-screen') && !e.target.closest('#gameover-modal')) {
+          lockPointer();
+        }
+      }
+    });
+
+    // Pointer lock change listener
+    document.addEventListener('pointerlockchange', () => {
+      const isLocked = (document.pointerLockElement === this.canvas);
+      if (this.player) {
+        this.player.isRightMouseDown = false;
+        this.player.stopMining();
+      }
+
+      if (!isLocked) {
+        const isShopOpen = this.shopManager && (this.shopManager.isOpen || this.shopManager.justClosed);
+        const isTeamOpen = window.TeammateManager && (window.TeammateManager.isOpen || window.TeammateManager.justClosed);
+        const isSkinOpen = window.SkinManager && window.SkinManager.isOpen;
+        if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen) {
+          if (resumeOverlay) resumeOverlay.style.display = 'flex';
+        }
+      } else {
+        if (resumeOverlay) resumeOverlay.style.display = 'none';
+      }
+    });
+
+    document.addEventListener('pointerlockerror', () => {
+      console.warn('Pointer lock error/throttled');
+    });
+
+    // Restart button in gameover modal
+    const restartBtn = document.getElementById('restart-btn');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => {
+        location.reload();
+      });
+    }
+  }
+
+  onBedDestroyed(team) {
+    const teamNames = { red: '红队', blue: '蓝队', green: '绿队', yellow: '黄队' };
+    const teamColors = { red: '§4', blue: '§9', green: '§a', yellow: '§e' };
+    const tName = teamNames[team] || team;
+    const tCol = teamColors[team] || '§c';
+
+    if (team === 'red') {
+      this.showBigBanner('§4你的床被摧毁了！', '你将无法再次复活！');
+      this.addChatMessage('§4[起床战争] 红队的床已被敌人摧毁！红队成员将无法再次复活！');
+    } else {
+      this.bedsBroken++;
+      this.showBigBanner(`${tCol}${tName}的床已被摧毁！`, '该队伍将无法再次复活！');
+      this.addChatMessage(`${tCol}[起床战争] ${tName}的床已被破坏！${tName}成员将无法再次复活！`);
+    }
+    this.updateScoreboard();
+    if (window.TeammateManager && window.TeammateManager.isOpen) {
+      window.TeammateManager.renderModal();
+    }
+  }
+
+  onFinalKill(team, bot) {
+    const teamNames = { red: '红队', blue: '蓝队', green: '绿队', yellow: '黄队' };
+    const tName = teamNames[team] || team;
+
+    // Check if player or player's teammate caused the kill
+    this.finalKills++;
+    this.kills++;
+
+    // Count remaining alive members in this team
+    let aliveCount = 0;
+    if (team === 'red') {
+      if (this.player && !this.player.isDead) aliveCount++;
+      for (const b of this.bots) {
+        if (b.team === 'red' && !b.isDead) aliveCount++;
+      }
+    } else {
+      for (const b of this.bots) {
+        if (b.team === team && !b.isDead) aliveCount++;
+      }
+    }
+
+    if (aliveCount <= 0) {
+      this.addChatMessage(`§c[队伍淘汰] ${tName} 已被完全淘汰出局！`);
+    }
+
+    this.updateScoreboard();
+
+    // Check Victory / Defeat conditions
+    this.checkMatchOutcome();
+  }
+
+  checkMatchOutcome() {
+    // 1. Check if Red Team is eliminated
+    const redBedDead = !this.world.bedStatus.red;
+    let redAlive = 0;
+    if (this.player && !this.player.isDead) redAlive++;
+    for (const b of this.bots) {
+      if (b.team === 'red' && !b.isDead) redAlive++;
+    }
+
+    if (redBedDead && redAlive === 0) {
+      this.defeat();
+      return;
+    }
+
+    // 2. Check if all enemy teams are eliminated
+    let anyEnemyTeamAlive = false;
+    for (const t of this.teams) {
+      if (t === 'red') continue;
+      const bedAlive = this.world.bedStatus[t];
+      let membersAlive = 0;
+      for (const b of this.bots) {
+        if (b.team === t && !b.isDead) membersAlive++;
+      }
+
+      if (bedAlive || membersAlive > 0) {
+        anyEnemyTeamAlive = true;
+        break;
+      }
+    }
+
+    if (!anyEnemyTeamAlive) {
+      this.victory();
+    }
+  }
+
+  victory() {
+    this.isGameRunning = false;
+    window.soundManager.playVictory();
+    this.showBigBanner('§6★ 恭喜胜利！ ★', '所有敌方队伍均已被歼灭！');
+
+    setTimeout(() => {
+      if (document.exitPointerLock) document.exitPointerLock();
+      const modal = document.getElementById('gameover-modal');
+      const title = document.getElementById('modal-title');
+      const stats = document.getElementById('modal-stats');
+      if (modal && title && stats) {
+        title.innerHTML = '§6★ 恭喜胜利！ ★';
+        stats.innerHTML = `
+          击杀数: ${this.kills}<br>
+          最终击杀: ${this.finalKills}<br>
+          破坏床数: ${this.bedsBroken}<br>
+          比赛用时: ${Math.floor(this.matchTime)} 秒
+        `;
+        modal.style.display = 'block';
+      }
+    }, 2500);
+  }
+
+  defeat() {
+    this.isGameRunning = false;
+    this.showBigBanner('§c游戏结束', '红队已被彻底淘汰！');
+
+    setTimeout(() => {
+      if (document.exitPointerLock) document.exitPointerLock();
+      const modal = document.getElementById('gameover-modal');
+      const title = document.getElementById('modal-title');
+      const stats = document.getElementById('modal-stats');
+      if (modal && title && stats) {
+        title.innerHTML = '§c游戏失败';
+        stats.innerHTML = `
+          击杀数: ${this.kills}<br>
+          最终击杀: ${this.finalKills}<br>
+          破坏床数: ${this.bedsBroken}<br>
+          比赛用时: ${Math.floor(this.matchTime)} 秒
+        `;
+        modal.style.display = 'block';
+      }
+    }, 2500);
+  }
+
+  showBigBanner(title, subtitle) {
+    const banner = document.getElementById('big-banner');
+    const tEl = document.getElementById('banner-title');
+    const sEl = document.getElementById('banner-subtitle');
+    if (!banner || !tEl || !sEl) return;
+
+    tEl.innerHTML = this.parseMinecraftColors(title);
+    sEl.innerHTML = this.parseMinecraftColors(subtitle);
+    banner.style.display = 'block';
+
+    setTimeout(() => {
+      banner.style.display = 'none';
+    }, 3500);
+  }
+
+  addChatMessage(text) {
+    const chatBox = document.getElementById('chat-box');
+    if (!chatBox) return;
+
+    const msg = document.createElement('div');
+    msg.className = 'chat-msg';
+    msg.innerHTML = this.parseMinecraftColors(text);
+    chatBox.appendChild(msg);
+
+    while (chatBox.children.length > 9) {
+      chatBox.removeChild(chatBox.firstChild);
+    }
+  }
+
+  parseMinecraftColors(text) {
+    const colorMap = {
+      '0': '#000000', '1': '#0000AA', '2': '#00AA00', '3': '#00AAAA',
+      '4': '#AA0000', '5': '#AA00AA', '6': '#FFAA00', '7': '#AAAAAA',
+      '8': '#555555', '9': '#5555FF', 'a': '#55FF55', 'b': '#55FFFF',
+      'c': '#FF5555', 'd': '#FF55FF', 'e': '#FFFF55', 'f': '#FFFFFF'
+    };
+
+    let result = '';
+    let currentColor = '#FFFFFF';
+    const parts = text.split('§');
+
+    result += parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      const code = parts[i][0];
+      const rest = parts[i].slice(1);
+      if (colorMap[code]) {
+        currentColor = colorMap[code];
+      }
+      result += `<span style="color:${currentColor}">${rest}</span>`;
+    }
+    return result;
+  }
+
+  updateScoreboard() {
+    const diaTimerEl = document.getElementById('sb-diamond-timer');
+    const emeTimerEl = document.getElementById('sb-emerald-timer');
+    const killsEl = document.getElementById('sb-kills');
+    const finalKillsEl = document.getElementById('sb-final-kills');
+    const bedsEl = document.getElementById('sb-beds');
+    const teamsContainer = document.getElementById('sb-teams-container');
+
+    if (diaTimerEl) diaTimerEl.innerText = `0:${String(Math.ceil(this.diamondTimer)).padStart(2, '0')}`;
+    if (emeTimerEl) emeTimerEl.innerText = `0:${String(Math.ceil(this.emeraldTimer)).padStart(2, '0')}`;
+    if (killsEl) killsEl.innerText = this.kills;
+    if (finalKillsEl) finalKillsEl.innerText = this.finalKills;
+    if (bedsEl) bedsEl.innerText = this.bedsBroken;
+
+    if (teamsContainer) {
+      const teamLabels = {
+        red: '[R] 红队 (你)',
+        blue: '[B] 蓝队',
+        green: '[G] 绿队',
+        yellow: '[Y] 黄队'
+      };
+
+      let html = '';
+      for (const t of this.teams) {
+        const bedAlive = this.world ? this.world.bedStatus[t] : true;
+        let membersAlive = 0;
+
+        if (t === 'red') {
+          if (this.player && !this.player.isDead) membersAlive++;
+          for (const b of this.bots) {
+            if (b.team === 'red' && !b.isDead) membersAlive++;
+          }
+        } else {
+          for (const b of this.bots) {
+            if (b.team === t && !b.isDead) membersAlive++;
+          }
+        }
+
+        let statusHtml = '';
+        if (bedAlive) {
+          statusHtml = '<span class="sb-status-alive">✔</span>';
+        } else if (membersAlive > 0) {
+          statusHtml = `<span style="color:#ffff55">${membersAlive}</span>`;
+        } else {
+          statusHtml = '<span class="sb-status-dead">✘</span>';
+        }
+
+        html += `
+          <div class="sb-team ${t}">
+            <span>${teamLabels[t] || t}:</span>
+            ${statusHtml}
+          </div>
+        `;
+      }
+      teamsContainer.innerHTML = html;
+    }
+  }
+
+  start() {
+    const loop = (timestamp) => {
+      if (!this.lastTime || isNaN(this.lastTime)) this.lastTime = timestamp;
+      const rawDt = (timestamp - this.lastTime) / 1000;
+      const dt = Math.max(0.001, Math.min(isNaN(rawDt) ? 0.016 : rawDt, 0.04));
+      this.lastTime = timestamp;
+
+      if (this.isGameRunning) {
+        this.matchTime += dt;
+        this.diamondTimer = Math.max(0, this.diamondTimer - dt);
+        if (this.diamondTimer <= 0) this.diamondTimer = 12;
+
+        this.emeraldTimer = Math.max(0, this.emeraldTimer - dt);
+        if (this.emeraldTimer <= 0) this.emeraldTimer = 15;
+
+        // Team Heal Pool Upgrade (Regen 1 HP every 1.5s when near base bed)
+        this.healPoolTimer += dt;
+        if (this.healPoolTimer >= 1.5) {
+          this.healPoolTimer = 0;
+          if (this.teamUpgrades.red.healPool && this.player && !this.player.isDead) {
+            const dHome = Math.hypot(this.player.position.x - 0, this.player.position.z - 36);
+            if (dHome < 14.0 && this.player.health < 20) {
+              this.player.health = Math.min(20, this.player.health + 1);
+              this.player.updateHUD();
+            }
+          }
+        }
+
+        // Team Alarm Trap Upgrade (Detects and slows enemies approaching Red Bed)
+        if (this.teamUpgrades.red.trap && this.bots) {
+          for (const b of this.bots) {
+            if (b.team !== 'red' && !b.isDead) {
+              const dBed = Math.hypot(b.position.x - 0, b.position.z - 40);
+              if (dBed < 9.0) {
+                this.teamUpgrades.red.trap = false;
+                b.velocity.multiplyScalar(0.3);
+                if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+                  window.soundManager.playDing();
+                }
+                this.addChatMessage('§c[警戒陷阱] 警告：敌方正在逼近红队的床！目标已受到减速！');
+                break;
+              }
+            }
+          }
+        }
+
+        // 1. Update Player
+        if (this.player) {
+          this.player.update(dt);
+        }
+
+        // 2. Update Bots
+        for (const bot of this.bots) {
+          bot.update(dt, this.player, this.bots);
+        }
+
+        // 3. Update Generators
+        if (this.generatorManager) {
+          this.generatorManager.update(dt, this.player, this.bots);
+        }
+
+        // 4. Update World Particles & NPC Nametags
+        if (this.world) {
+          this.world.update(dt);
+        }
+        if (this.shopManager && this.shopManager.update) {
+          this.shopManager.update(this.camera);
+        }
+
+        // 5. Update Scoreboard (throttled to 5 times/sec to eliminate DOM reflow lag)
+        this.sbTimer += dt;
+        if (this.sbTimer >= 0.2) {
+          this.sbTimer = 0;
+          this.updateScoreboard();
+        }
+      }
+
+      this.renderer.render(this.scene, this.camera);
+      requestAnimationFrame(loop);
+    };
+
+    requestAnimationFrame(loop);
+  }
+}
+
+function initGameInstance() {
+  if (!window.game) {
+    window.game = new BedwarsGame();
+    window.game.start();
+  }
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initGameInstance);
+} else {
+  initGameInstance();
+}
