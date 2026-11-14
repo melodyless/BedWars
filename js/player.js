@@ -640,32 +640,43 @@ class Player {
     if (!currentItem) return;
 
     // 2. Usable Items (Golden Apple, Fireball, Ender Pearl, Enchanted Apple, Potions)
-    if (currentItem.type === 'potion' || (currentItem.id && currentItem.id.startsWith('potion_'))) {
+    const isPotion = currentItem.type === 'potion' || (currentItem.id && currentItem.id.startsWith('potion_'));
+    const isGapple = currentItem.id === 'golden_apple';
+    const isEgapple = currentItem.id === 'enchanted_golden_apple';
+    const isFireball = currentItem.id === 'fireball';
+    const isEnderPearl = currentItem.id === 'ender_pearl';
+
+    if (isPotion) {
       this.drinkPotion(currentItem, 'hotbar', this.selectedSlot);
       return;
-    } else if (currentItem.id === 'golden_apple') {
-      if (this.health < this.maxHealth) {
-        this.health = Math.min(this.maxHealth, this.health + 6);
-        this.consumeHeldItem();
-        window.soundManager.playPickup();
-        window.game.addChatMessage('§a你吃下了金苹果，生命值已恢复！');
-        this.updateHUD();
-        return;
-      }
-    } else if (currentItem.id === 'enchanted_golden_apple') {
-      this.health = 20;
+    } else if (isGapple) {
+      this.health = Math.min(this.maxHealth, this.health + 8);
+      this.effects.regen = Math.max(this.effects.regen || 0, 15);
       this.consumeHeldItem();
-      if (window.soundManager && typeof window.soundManager.playDing === 'function') {
-        window.soundManager.playDing();
+      if (window.soundManager && typeof window.soundManager.playDrink === 'function') {
+        window.soundManager.playDrink();
       }
-      window.game.addChatMessage('§d★ 你吃下了附魔金苹果！生命值已完全恢复并获得神圣祝福！');
+      if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+        window.soundManager.playDing(1100);
+      }
+      if (window.game) window.game.addChatMessage('§a你吃下了金苹果，生命值已恢复并获得15秒再生效果！');
       this.updateHUD();
       return;
-    } else if (currentItem.id === 'fireball') {
+    } else if (isEgapple) {
+      this.health = this.maxHealth;
+      this.effects.regen = 30;
+      this.consumeHeldItem();
+      if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+        window.soundManager.playDing(1500);
+      }
+      if (window.game) window.game.addChatMessage('§d★ 你吃下了附魔金苹果！生命完全恢复并获得神圣祝福！');
+      this.updateHUD();
+      return;
+    } else if (isFireball) {
       this.consumeHeldItem();
       this.shootFireball(origin, dir);
       return;
-    } else if (currentItem.id === 'ender_pearl') {
+    } else if (isEnderPearl) {
       this.consumeHeldItem();
       this.throwEnderPearl(origin, dir);
       return;
@@ -1929,6 +1940,25 @@ class Player {
         const handleSlotPick = (e) => {
           if (e) {
             e.stopPropagation();
+          }
+          if (this.selectedSlot === i) {
+            // Already active slot clicked: immediately use/consume item (drink potion, eat apple, etc.)
+            const held = this.hotbar[i];
+            const isUsable = held && (
+              held.type === 'potion' ||
+              held.type === 'utility' ||
+              (held.id && (
+                held.id.startsWith('potion_') ||
+                held.id === 'golden_apple' ||
+                held.id === 'enchanted_golden_apple' ||
+                held.id === 'fireball' ||
+                held.id === 'ender_pearl'
+              ))
+            );
+            if (isUsable) {
+              this.handleRightClick();
+              return;
+            }
           }
           this.selectSlot(i);
         };

@@ -504,22 +504,26 @@ class TouchControls {
     this.dom.btnAttack.addEventListener('touchend', endAttack, { passive: false });
     this.dom.btnAttack.addEventListener('touchcancel', endAttack, { passive: false });
 
-    // C. Use / Place / Bow Button
-    this.dom.btnUse.addEventListener('touchstart', (e) => {
-      e.preventDefault();
+    // C. Use / Place / Bow Button (Support touch, pointer and click)
+    const startUse = (e) => {
+      if (e.cancelable) e.preventDefault();
       e.stopPropagation();
       self.dom.btnUse.classList.add('pressed');
       self.handleUseStart();
-    }, { passive: false });
+    };
 
     const endUse = (e) => {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
       e.stopPropagation();
       self.dom.btnUse.classList.remove('pressed');
       self.handleUseEnd();
     };
+
+    this.dom.btnUse.addEventListener('touchstart', startUse, { passive: false });
     this.dom.btnUse.addEventListener('touchend', endUse, { passive: false });
     this.dom.btnUse.addEventListener('touchcancel', endUse, { passive: false });
+    this.dom.btnUse.addEventListener('pointerdown', startUse);
+    this.dom.btnUse.addEventListener('pointerup', endUse);
 
     // D. Drop Item Button
     this.dom.btnDrop.addEventListener('touchstart', (e) => {
@@ -575,10 +579,30 @@ class TouchControls {
           if (self.longPressTimer) clearTimeout(self.longPressTimer);
           self.longPressTimer = setTimeout(() => {
             if (self.screenTapTouchId === touch.identifier && self.player) {
-              self.isScreenMining = true;
-              self.player.startAttackOrMine();
+              const currentItem = self.player.hotbar[self.player.selectedSlot];
+              const isUsable = currentItem && (
+                currentItem.type === 'potion' ||
+                currentItem.type === 'utility' ||
+                (currentItem.id && (
+                  currentItem.id.startsWith('potion_') ||
+                  currentItem.id === 'golden_apple' ||
+                  currentItem.id === 'enchanted_golden_apple' ||
+                  currentItem.id === 'fireball' ||
+                  currentItem.id === 'ender_pearl'
+                ))
+              );
+
+              if (isUsable) {
+                // Long press on screen directly uses potion/golden apple/pearl!
+                self.player.handleRightClick();
+              } else if (currentItem && currentItem.type === 'bow') {
+                self.handleUseStart();
+              } else {
+                self.isScreenMining = true;
+                self.player.startAttackOrMine();
+              }
             }
-          }, 260); // 260ms long-press triggers block mining
+          }, 240); // 240ms long-press triggers item use / block mining
         }
       }
     }, { passive: true });
@@ -632,11 +656,29 @@ class TouchControls {
             const elapsed = performance.now() - self.screenTapStartTime;
             const dist = Math.hypot(touch.clientX - self.screenTapStartX, touch.clientY - self.screenTapStartY);
             if (elapsed < 240 && dist < 15 && self.player) {
-              // Quick tap in screen: attack / interact
-              self.player.startAttackOrMine();
-              setTimeout(() => {
-                if (self.player) self.player.stopMining();
-              }, 60);
+              const currentItem = self.player.hotbar[self.player.selectedSlot];
+              const isUsable = currentItem && (
+                currentItem.type === 'potion' ||
+                currentItem.type === 'utility' ||
+                (currentItem.id && (
+                  currentItem.id.startsWith('potion_') ||
+                  currentItem.id === 'golden_apple' ||
+                  currentItem.id === 'enchanted_golden_apple' ||
+                  currentItem.id === 'fireball' ||
+                  currentItem.id === 'ender_pearl'
+                ))
+              );
+
+              if (isUsable) {
+                // Tapping screen directly uses/drinks held item
+                self.player.handleRightClick();
+              } else {
+                // Quick tap in screen: attack / interact
+                self.player.startAttackOrMine();
+                setTimeout(() => {
+                  if (self.player) self.player.stopMining();
+                }, 60);
+              }
             }
           }
         }
@@ -663,14 +705,28 @@ class TouchControls {
         }
 
         if (slotIndex >= 0 && slotIndex < 9) {
-          const now = performance.now();
-          if (self.player.selectedSlot === slotIndex && (now - lastTapTime < 380)) {
-            // Double tap active slot: use / drink potion / eat golden apple!
-            self.player.handleRightClick();
+          if (self.player.selectedSlot === slotIndex) {
+            // Already holding this item: tapping active slot uses/drinks/eats immediately!
+            const held = self.player.hotbar[slotIndex];
+            const isUsable = held && (
+              held.type === 'potion' ||
+              held.type === 'utility' ||
+              (held.id && (
+                held.id.startsWith('potion_') ||
+                held.id === 'golden_apple' ||
+                held.id === 'enchanted_golden_apple' ||
+                held.id === 'fireball' ||
+                held.id === 'ender_pearl'
+              ))
+            );
+            if (isUsable) {
+              self.player.handleRightClick();
+              return;
+            }
           }
           self.player.selectSlot(slotIndex);
           lastTapSlot = slotIndex;
-          lastTapTime = now;
+          lastTapTime = performance.now();
         }
       };
 
@@ -693,7 +749,7 @@ class TouchControls {
 
     const currentItem = this.player.hotbar[this.player.selectedSlot];
 
-    // Bow
+    // 1. Bow: draw tension
     if (currentItem && currentItem.type === 'bow') {
       const arrowIdx = this.player.hotbar.findIndex(s => s && (s.type === 'arrow' || (s.id && s.id.startsWith('arrow'))) && s.count > 0);
       if (arrowIdx === -1) {
@@ -708,20 +764,34 @@ class TouchControls {
       return;
     }
 
-    // Single item use (potions, apples, pearls, fireballs)
-    if (currentItem && (currentItem.type === 'potion' || currentItem.id === 'golden_apple' || currentItem.id === 'enchanted_golden_apple' || currentItem.id === 'fireball' || currentItem.id === 'ender_pearl')) {
+    // 2. Usable items (potions, golden apples, fireballs, ender pearls, utilities)
+    const isUsableItem = currentItem && (
+      currentItem.type === 'potion' ||
+      currentItem.type === 'utility' ||
+      (currentItem.id && (
+        currentItem.id.startsWith('potion_') ||
+        currentItem.id === 'golden_apple' ||
+        currentItem.id === 'enchanted_golden_apple' ||
+        currentItem.id === 'fireball' ||
+        currentItem.id === 'ender_pearl'
+      ))
+    );
+
+    if (isUsableItem) {
       this.player.handleRightClick();
       return;
     }
 
-    // Continuous block placement (Minecraft PE Fast Bridging)
+    // 3. Block placement (continuous bridging when holding down)
     this.player.handleRightClick();
-    if (this.continuousPlaceTimer) clearInterval(this.continuousPlaceTimer);
-    this.continuousPlaceTimer = setInterval(() => {
-      if (this.isPlacingDown && this.player && !this.player.isDead) {
-        this.player.handleRightClick();
-      }
-    }, 180);
+    if (currentItem && currentItem.type === 'block') {
+      if (this.continuousPlaceTimer) clearInterval(this.continuousPlaceTimer);
+      this.continuousPlaceTimer = setInterval(() => {
+        if (this.isPlacingDown && this.player && !this.player.isDead) {
+          this.player.handleRightClick();
+        }
+      }, 180);
+    }
   }
 
   handleUseEnd() {
