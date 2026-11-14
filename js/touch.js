@@ -547,7 +547,7 @@ class TouchControls {
 
     const isElementInteractive = (el) => {
       if (!el) return false;
-      return !!el.closest('.touch-left-zone, .touch-right-zone, .touch-top-bar, #hotbar, #shop-modal, #team-modal, #backpack-modal, #start-screen, #gameover-modal, #resume-overlay, .touch-settings-modal');
+      return !!el.closest('.touch-left-zone, .touch-right-zone, .touch-top-bar, #hotbar, #bottom-hud, #status-bars, #resources-display, #hud-top-actions, #shop-modal, #team-modal, #backpack-modal, #start-screen, #gameover-modal, #resume-overlay, .touch-settings-modal');
     };
 
     touchArea.addEventListener('touchstart', (e) => {
@@ -652,16 +652,19 @@ class TouchControls {
       let lastTapSlot = -1;
       let lastTapTime = 0;
 
-      hotbarEl.addEventListener('touchstart', (e) => {
+      const handleHotbarTouch = (e) => {
         const slotEl = e.target.closest('.hotbar-slot');
         if (!slotEl || !self.player) return;
-        e.preventDefault();
         e.stopPropagation();
 
-        const slotIndex = parseInt(slotEl.dataset.index, 10);
-        if (!isNaN(slotIndex)) {
+        let slotIndex = parseInt(slotEl.dataset.index, 10);
+        if (isNaN(slotIndex)) {
+          slotIndex = Array.from(slotEl.parentElement.children).indexOf(slotEl);
+        }
+
+        if (slotIndex >= 0 && slotIndex < 9) {
           const now = performance.now();
-          if (self.player.selectedSlot === slotIndex && (now - lastTapTime < 350)) {
+          if (self.player.selectedSlot === slotIndex && (now - lastTapTime < 380)) {
             // Double tap active slot: use / drink potion / eat golden apple!
             self.player.handleRightClick();
           }
@@ -669,7 +672,10 @@ class TouchControls {
           lastTapSlot = slotIndex;
           lastTapTime = now;
         }
-      }, { passive: false });
+      };
+
+      hotbarEl.addEventListener('touchstart', handleHotbarTouch, { passive: true });
+      hotbarEl.addEventListener('pointerdown', handleHotbarTouch);
     }
 
     // --- 7. Settings Modal Event Listeners ---

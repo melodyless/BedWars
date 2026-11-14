@@ -120,6 +120,8 @@ canvas#render-canvas {
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  pointer-events: auto;
+  z-index: 75;
 }
 
 /* Resource Counters Above Hotbar */
@@ -182,6 +184,9 @@ canvas#render-canvas {
   border-top-color: #dbdbdb;
   border-left-color: #dbdbdb;
   box-shadow: inset 2px 2px 0px #ffffff, inset -2px -2px 0px #555555, 0 4px 10px rgba(0,0,0,0.8);
+  pointer-events: auto;
+  touch-action: manipulation;
+  z-index: 76;
 }
 .hotbar-slot {
   width: 44px;
@@ -197,6 +202,18 @@ canvas#render-canvas {
   display: flex;
   justify-content: center;
   align-items: center;
+  pointer-events: auto;
+  touch-action: manipulation;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(255, 255, 255, 0.4);
+  transition: transform 0.08s ease, background 0.08s ease;
+}
+.hotbar-slot:active {
+  transform: scale(0.92);
+  background: #777777;
+}
+.hotbar-slot * {
+  pointer-events: none;
 }
 .hotbar-slot.active {
   border: 3px solid #ffffff !important;

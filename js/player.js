@@ -468,7 +468,11 @@ class Player {
 
   selectSlot(index) {
     if (index >= 0 && index < 9) {
+      const prev = this.selectedSlot;
       this.selectedSlot = index;
+      if (prev !== index && window.soundManager && typeof window.soundManager.playSlotChange === 'function') {
+        window.soundManager.playSlotChange();
+      }
       this.updateHeldItemVisual();
       this.updateHUD();
     }
@@ -1867,6 +1871,9 @@ class Player {
         const item = this.hotbar[i];
         const slotDiv = document.createElement('div');
         slotDiv.className = `hotbar-slot ${i === this.selectedSlot ? 'active' : ''}`;
+        slotDiv.dataset.index = i;
+        slotDiv.setAttribute('data-index', i);
+        slotDiv.setAttribute('data-slot', i);
 
         const keyDiv = document.createElement('span');
         keyDiv.className = 'slot-key';
@@ -1887,7 +1894,14 @@ class Player {
           }
         }
 
-        slotDiv.onclick = () => this.selectSlot(i);
+        const handleSlotPick = (e) => {
+          if (e) {
+            e.stopPropagation();
+          }
+          this.selectSlot(i);
+        };
+        slotDiv.onclick = handleSlotPick;
+        slotDiv.onpointerdown = handleSlotPick;
         hotbarEl.appendChild(slotDiv);
       }
     }
