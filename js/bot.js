@@ -2342,7 +2342,7 @@ class Bot {
           finalDmg += teamSharp;
 
           if (isCrit) {
-            finalDmg = Math.round(this.damage * 1.5);
+            finalDmg = Math.round(finalDmg * 2.0);
             window.soundManager.playDing();
             if (this.world.spawnCritParticles) {
               this.world.spawnCritParticles(targetPos);

@@ -544,10 +544,10 @@ class Player {
       const sharpnessBonus = (window.game && window.game.teamUpgrades && window.game.teamUpgrades.red) ? window.game.teamUpgrades.red.sharpness : 0;
       dmg += sharpnessBonus;
 
-      // Jump-Crit: attacking while falling downward deals 1.5x damage!
+      // Jump-Crit: attacking while falling downward deals 2.0x (double) damage!
       const isCrit = (this.velocity.y < -0.3 && !this.onGround);
       if (isCrit) {
-        dmg = Math.round(dmg * 1.5);
+        dmg = Math.round(dmg * 2.0);
         window.soundManager.playDing();
         if (this.world.spawnCritParticles) {
           this.world.spawnCritParticles(closestBot.position);
