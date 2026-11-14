@@ -23,6 +23,9 @@ class Player {
     // Bounding Box (AABB)
     this.width = 0.6;
     this.height = 1.8;
+    this.halfW = 0.25;
+    this.standEyeHeight = 1.62;
+    this.sneakEyeHeight = 1.38; // Minecraft crouching perspective to clearly see side faces
     this.eyeHeight = 1.62;
 
     // Stats
@@ -1596,7 +1599,10 @@ class Player {
       hintEl.style.display = window.shopManager.checkVillagerInteract(origin, dir) ? 'block' : 'none';
     }
 
-    // 7. Update Camera position & rotation
+    // 7. Update Camera position & rotation with smooth sneak crouch
+    const targetEye = this.keys.sneak ? this.sneakEyeHeight : this.standEyeHeight;
+    this.eyeHeight = THREE.MathUtils.lerp(this.eyeHeight, targetEye, dt * 16.0);
+
     this.camera.position.set(
       this.position.x,
       this.position.y + this.eyeHeight,
@@ -1606,6 +1612,38 @@ class Player {
     this.camera.rotation.order = 'YXZ';
     this.camera.rotation.y = this.yaw;
     this.camera.rotation.x = this.pitch;
+  }
+
+  hasGroundBelow(posX, posZ) {
+    // Check if there is solid block support underneath the player's feet
+    // With Minecraft sneak edge overhang: player can safely lean out over edge to see and place blocks on side faces!
+    const groundBy = Math.floor(this.position.y - 0.2);
+    const minSupportOverlap = 0.05; // 5cm minimum foot overlap to stay 100% safe on edge without falling into void
+    const checkHalfW = Math.max(0.08, this.halfW - minSupportOverlap);
+
+    const minX = posX - checkHalfW;
+    const maxX = posX + checkHalfW;
+    const minZ = posZ - checkHalfW;
+    const maxZ = posZ + checkHalfW;
+
+    const minBx = Math.floor(minX + 0.5);
+    const maxBx = Math.floor(maxX + 0.5);
+    const minBz = Math.floor(minZ + 0.5);
+    const maxBz = Math.floor(maxZ + 0.5);
+
+    for (let bx = minBx; bx <= maxBx; bx++) {
+      for (let bz = minBz; bz <= maxBz; bz++) {
+        const b = this.world.getBlock(bx, groundBy, bz);
+        if (b) {
+          const bMinX = bx - 0.5, bMaxX = bx + 0.5;
+          const bMinZ = bz - 0.5, bMaxZ = bz + 0.5;
+          if (minX < bMaxX && maxX > bMinX && minZ < bMaxZ && maxZ > bMinZ) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 
   moveWithCollision(dt) {
@@ -1680,12 +1718,9 @@ class Player {
     if (Math.abs(dx) > 0.0001) {
       let canMoveX = true;
 
-      // Sneak edge protection: don't step into empty air when crouching
+      // Sneak edge protection: allow leaning out over edge to see and place blocks on side faces, but never fall into void!
       if (this.keys.sneak && this.onGround) {
-        const nextFootBx = Math.floor(this.position.x + dx + 0.5);
-        const curFootBz = Math.floor(this.position.z + 0.5);
-        const groundBy = Math.floor(this.position.y - 0.5 + 0.5);
-        if (!this.world.getBlock(nextFootBx, groundBy, curFootBz)) {
+        if (!this.hasGroundBelow(this.position.x + dx, this.position.z)) {
           canMoveX = false;
           this.velocity.x = 0;
         }
@@ -1750,12 +1785,9 @@ class Player {
     if (Math.abs(dz) > 0.0001) {
       let canMoveZ = true;
 
-      // Sneak edge protection: don't step into empty air when crouching
+      // Sneak edge protection: allow leaning out over edge to see and place blocks on side faces, but never fall into void!
       if (this.keys.sneak && this.onGround) {
-        const curFootBx = Math.floor(this.position.x + 0.5);
-        const nextFootBz = Math.floor(this.position.z + dz + 0.5);
-        const groundBy = Math.floor(this.position.y - 0.5 + 0.5);
-        if (!this.world.getBlock(curFootBx, groundBy, nextFootBz)) {
+        if (!this.hasGroundBelow(this.position.x, this.position.z + dz)) {
           canMoveZ = false;
           this.velocity.z = 0;
         }
