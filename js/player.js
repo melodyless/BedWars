@@ -1483,7 +1483,11 @@ class Player {
   respawn() {
     this.isDead = false;
     this.health = this.maxHealth;
-    this.position.set(0, 0.6, 56);
+    if (this.spawnPoint) {
+      this.position.copy(this.spawnPoint);
+    } else {
+      this.position.set(0, 0.6, 56);
+    }
     this.velocity.set(0, 0, 0);
 
     const respawnEl = document.getElementById('respawn-overlay');

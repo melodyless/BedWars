@@ -63,6 +63,9 @@ class Bot {
     };
 
     const myTeam = this.teamData[this.team] || this.teamData.blue;
+    if (config.initialBedPos) {
+      myTeam.bed = new THREE.Vector3(config.initialBedPos.x, config.initialBedPos.y, config.initialBedPos.z);
+    }
     this.spawnPoint = config.spawnPos ?
       new THREE.Vector3(config.spawnPos.x, config.spawnPos.y, config.spawnPos.z) :
       myTeam.spawn.clone();
@@ -1551,10 +1554,24 @@ class Bot {
       this.activeBridgeAxis = null;
       this.miningBlock = null;
 
-      // Check if enemy is nearby
-      const player = window.player;
-      const allBots = (window.game && window.game.bots) ? window.game.bots : [];
-      const { target, dist } = this.findTarget(player, allBots);
+      // 0. Prioritize attacking enemy beds if enemy beds are still alive
+      const targetBed = this.findTargetBed();
+      if (targetBed) {
+        // If enemy player/bot is nearby, fight first
+        if (target && dist < 12.0) {
+          this.state = 'COMBAT';
+          this.currentTarget = target;
+          this.stateTimer = 0;
+          return;
+        }
+
+        // Bridge or rush towards enemy bed to destroy it!
+        this.state = 'BRIDGE';
+        this.stateTimer = 0;
+        return;
+      }
+
+      // 1. If enemy is nearby, engage in combat
       if (target) {
         if (dist < 14.0) {
           this.state = 'COMBAT';
@@ -1732,11 +1749,24 @@ class Bot {
     for (const t of teams) {
       if (t === this.team) continue;
       if (this.world.bedStatus[t]) {
-        const bedPos = this.teamData[t].bed;
-        const d = this.position.distanceTo(bedPos);
-        if (d < bestDist) {
-          bestDist = d;
-          bestBed = { team: t, pos: bedPos };
+        // Look up bed position in world voxel map or teamData
+        let bedPos = this.teamData[t] ? this.teamData[t].bed : null;
+        if (window.game && window.game.currentMode && window.game.currentMode.startsWith('skywars')) {
+          // In SkyWars, find actual bed coordinates from world
+          const targetBedType = `BED_${t.toUpperCase()}`;
+          for (const [k, b] of this.world.voxelMap.entries()) {
+            if (b && b.type === targetBedType) {
+              bedPos = new THREE.Vector3(b.x, b.y, b.z);
+              break;
+            }
+          }
+        }
+        if (bedPos) {
+          const d = this.position.distanceTo(bedPos);
+          if (d < bestDist) {
+            bestDist = d;
+            bestBed = { team: t, pos: bedPos };
+          }
         }
       }
     }

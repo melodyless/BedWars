@@ -402,52 +402,105 @@ class VoxelWorld {
   }
 
   generateSpawnChestLoot() {
-    const loot = [
-      { id: 'sword_iron', name: '铁剑', type: 'weapon', count: 1, damage: 6 },
-      { id: 'armor_iron', name: '铁盔甲', type: 'armor', tier: 'iron', count: 1 },
-      { id: 'wood_planks', name: '橡木木板', type: 'block', blockType: 'OAK_PLANKS', count: 32 },
-      { id: 'golden_apple', name: '金苹果', type: 'utility', count: 2 },
-      { id: 'pickaxe_iron', name: '铁镐', type: 'tool', count: 1 },
-      { id: 'bow_normal', name: '木弓', type: 'bow', bowType: 'normal', count: 1 },
-      { id: 'arrow_16', name: '箭矢', type: 'arrow', count: 16 },
-      { id: 'potion_speed', name: '迅捷药水 II (45秒)', type: 'potion', potionType: 'speed', duration: 45, count: 1 }
-    ];
-
+    // Generates abundant building wool (32-64 count stacks) and diverse randomized gear
     const slots = new Array(27).fill(null);
     const usedIndices = new Set();
-    loot.forEach(item => {
+    const getRandomSlot = () => {
       let slotIdx;
       do {
         slotIdx = Math.floor(Math.random() * 27);
       } while (usedIndices.has(slotIdx));
       usedIndices.add(slotIdx);
-      slots[slotIdx] = { ...item };
-    });
+      return slotIdx;
+    };
+
+    // 1. Abundant building wool / blocks (at least 2 large stacks: 64 to 128 total wool)
+    const woolColors = ['WHITE_WOOL', 'RED_WOOL', 'BLUE_WOOL', 'GREEN_WOOL', 'YELLOW_WOOL'];
+    const randomWool = woolColors[Math.floor(Math.random() * woolColors.length)];
+    slots[getRandomSlot()] = { id: 'wool_stack_1', name: '羊毛 x64', type: 'block', blockType: randomWool, count: 64 };
+    slots[getRandomSlot()] = { id: 'wool_stack_2', name: '羊毛 x48', type: 'block', blockType: randomWool, count: 48 };
+
+    // 2. Weapon & Armor pool
+    const weapons = [
+      { id: 'sword_iron', name: '铁剑', type: 'weapon', count: 1, damage: 6 },
+      { id: 'sword_stone', name: '锋利石剑', type: 'weapon', count: 1, damage: 5 },
+      { id: 'sword_diamond', name: '精良钻石剑', type: 'weapon', count: 1, damage: 7 }
+    ];
+    slots[getRandomSlot()] = { ...weapons[Math.floor(Math.random() * weapons.length)] };
+
+    const armors = [
+      { id: 'armor_iron', name: '铁盔甲', type: 'armor', tier: 'iron', count: 1 },
+      { id: 'armor_chain', name: '锁链甲', type: 'armor', tier: 'chain', count: 1 }
+    ];
+    slots[getRandomSlot()] = { ...armors[Math.floor(Math.random() * armors.length)] };
+
+    // 3. Guaranteed tools & utilities
+    slots[getRandomSlot()] = { id: 'pickaxe_iron', name: '铁镐', type: 'tool', count: 1 };
+    slots[getRandomSlot()] = { id: 'golden_apple', name: '金苹果 x3', type: 'utility', count: 2 + Math.floor(Math.random() * 2) };
+
+    // 4. Ranged Combat
+    if (Math.random() < 0.85) {
+      slots[getRandomSlot()] = { id: 'bow_normal', name: '木弓', type: 'bow', bowType: 'normal', count: 1 };
+      slots[getRandomSlot()] = { id: 'arrow_16', name: '箭矢 x24', type: 'arrow', count: 16 + Math.floor(Math.random() * 16) };
+    }
+
+    // 5. Tactical / Potion random roll (2-3 random tactical items)
+    const tacticalPool = [
+      { id: 'potion_speed', name: '迅捷药水 II (45秒)', type: 'potion', potionType: 'speed', duration: 45, count: 1 },
+      { id: 'potion_regen', name: '恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, count: 1 },
+      { id: 'potion_jump', name: '跳跃药水 V (45秒)', type: 'potion', potionType: 'jump', duration: 45, count: 1 },
+      { id: 'fireball', name: '火焰弹', type: 'utility', count: 1 + Math.floor(Math.random() * 2) },
+      { id: 'ender_pearl', name: '末影珍珠', type: 'utility', count: 1 },
+      { id: 'wood_planks', name: '橡木木板 x32', type: 'block', blockType: 'OAK_PLANKS', count: 32 },
+      { id: 'shears', name: '剪刀', type: 'tool', count: 1 }
+    ];
+
+    // Pick 2-3 distinct tactical items
+    const shuffledTactical = [...tacticalPool].sort(() => Math.random() - 0.5);
+    const tacticalCount = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < tacticalCount && i < shuffledTactical.length; i++) {
+      slots[getRandomSlot()] = { ...shuffledTactical[i] };
+    }
+
     return slots;
   }
 
   generateCenterChestLoot() {
-    const loot = [
-      { id: 'sword_diamond', name: '钻石剑', type: 'weapon', count: 1, damage: 7 },
-      { id: 'armor_diamond', name: '钻石盔甲', type: 'armor', tier: 'diamond', count: 1 },
-      { id: 'enchanted_golden_apple', name: '附魔金苹果', type: 'utility', count: 1 },
-      { id: 'ender_pearl', name: '末影珍珠', type: 'utility', count: 2 },
-      { id: 'bow_power', name: '力量弓 (增伤)', type: 'bow', bowType: 'power', count: 1 },
-      { id: 'arrow_16', name: '箭矢', type: 'arrow', count: 32 },
-      { id: 'fireball', name: '火焰弹', type: 'utility', count: 2 },
-      { id: 'potion_regen', name: '恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, count: 1 }
-    ];
-
+    // Generates high-tier random loot for Center mega chests
     const slots = new Array(27).fill(null);
     const usedIndices = new Set();
-    loot.forEach(item => {
+    const getRandomSlot = () => {
       let slotIdx;
       do {
         slotIdx = Math.floor(Math.random() * 27);
       } while (usedIndices.has(slotIdx));
       usedIndices.add(slotIdx);
-      slots[slotIdx] = { ...item };
-    });
+      return slotIdx;
+    };
+
+    // Center Mega Loot Pool
+    slots[getRandomSlot()] = { id: 'wool_stack_mid', name: '羊毛 x64', type: 'block', blockType: 'PURPLE_WOOL', count: 64 };
+    slots[getRandomSlot()] = { id: 'sword_diamond', name: '锋利钻石神剑', type: 'weapon', count: 1, damage: 7 };
+    slots[getRandomSlot()] = { id: 'armor_diamond', name: '钻石盔甲', type: 'armor', tier: 'diamond', count: 1 };
+    slots[getRandomSlot()] = { id: 'enchanted_golden_apple', name: '附魔金苹果', type: 'utility', count: 1 + (Math.random() < 0.4 ? 1 : 0) };
+    slots[getRandomSlot()] = { id: 'ender_pearl', name: '末影珍珠 x2', type: 'utility', count: 2 + (Math.random() < 0.5 ? 2 : 0) };
+    slots[getRandomSlot()] = { id: 'bow_power', name: '力量弓 (增伤)', type: 'bow', bowType: 'power', count: 1 };
+    slots[getRandomSlot()] = { id: 'arrow_32', name: '箭矢 x32', type: 'arrow', count: 32 };
+
+    const bonusPool = [
+      { id: 'fireball', name: '火焰弹 x2', type: 'utility', count: 2 },
+      { id: 'potion_regen', name: '神圣恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, count: 1 },
+      { id: 'potion_invis', name: '隐形药水 (30秒)', type: 'potion', potionType: 'invis', duration: 30, count: 1 },
+      { id: 'pickaxe_diamond', name: '钻石镐', type: 'tool', count: 1 },
+      { id: 'golden_apple', name: '金苹果 x4', type: 'utility', count: 4 }
+    ];
+
+    const shuffledBonus = [...bonusPool].sort(() => Math.random() - 0.5);
+    const bonusCount = 2 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < bonusCount && i < shuffledBonus.length; i++) {
+      slots[getRandomSlot()] = { ...shuffledBonus[i] };
+    }
+
     return slots;
   }
 
@@ -481,14 +534,13 @@ class VoxelWorld {
   }
 
   generateSkyWarsMap(mode) {
-    this.bedStatus = { red: false, blue: false, green: false, yellow: false };
-
     if (mode === 'skywars_4p') {
+      this.bedStatus = { red: true, blue: true, green: true, yellow: true };
       const islandPositions = [
-        { team: 'red', x: 0, z: 36, chestPos: { x: 0, y: 1, z: 39 } },
-        { team: 'blue', x: 0, z: -36, chestPos: { x: 0, y: 1, z: -39 } },
-        { team: 'green', x: 36, z: 0, chestPos: { x: 39, y: 1, z: 0 } },
-        { team: 'yellow', x: -36, z: 0, chestPos: { x: -39, y: 1, z: 0 } }
+        { team: 'red', x: 0, z: 36, chestPos: { x: 0, y: 1, z: 39 }, bedPos: { x: 0, y: 1, z: 33 }, bedType: 'BED_RED' },
+        { team: 'blue', x: 0, z: -36, chestPos: { x: 0, y: 1, z: -39 }, bedPos: { x: 0, y: 1, z: -33 }, bedType: 'BED_BLUE' },
+        { team: 'green', x: 36, z: 0, chestPos: { x: 39, y: 1, z: 0 }, bedPos: { x: 33, y: 1, z: 0 }, bedType: 'BED_GREEN' },
+        { team: 'yellow', x: -36, z: 0, chestPos: { x: -39, y: 1, z: 0 }, bedPos: { x: -33, y: 1, z: 0 }, bedType: 'BED_YELLOW' }
       ];
 
       for (const pos of islandPositions) {
@@ -505,6 +557,9 @@ class VoxelWorld {
         }
         this.setBlock(pos.chestPos.x, pos.chestPos.y, pos.chestPos.z, 'CHEST', false);
         this.registerChest(pos.chestPos.x, pos.chestPos.y, pos.chestPos.z, false);
+
+        // Place Team Bed
+        this.setBlock(pos.bedPos.x, pos.bedPos.y, pos.bedPos.z, pos.bedType, true, pos.team);
       }
 
       this.createThemedMiddleIsland(0, 0, 0, 11, {}, 'boogie');
@@ -520,6 +575,9 @@ class VoxelWorld {
       }
     } else {
       // 1v1 SkyWars
+      this.bedStatus = { red: true, blue: true, green: false, yellow: false };
+
+      // Red Island (South)
       this.createSkyWarsIsland(0, 0, 32, 6);
       for (let ox = -1; ox <= 1; ox++) {
         for (let oz = -1; oz <= 1; oz++) {
@@ -531,10 +589,13 @@ class VoxelWorld {
       }
       this.setBlock(0, 1, 35, 'CHEST', false);
       this.registerChest(0, 1, 35, false);
+      this.setBlock(0, 1, 29, 'BED_RED', true, 'red');
 
+      // Blue Island (North)
       this.createSkyWarsIsland(0, 0, -32, 6);
       this.setBlock(0, 1, -35, 'CHEST', false);
       this.registerChest(0, 1, -35, false);
+      this.setBlock(0, 1, -29, 'BED_BLUE', true, 'blue');
 
       this.createThemedMiddleIsland(0, 0, 0, 10, {}, 'boogie');
       const midChests = [

@@ -346,6 +346,7 @@ class BedwarsGame {
 
         // Player Spawn on Red Island
         this.player.position.set(0, 1.2, 36);
+        this.player.spawnPoint = new THREE.Vector3(0, 1.2, 36);
         this.player.velocity.set(0, 0, 0);
         this.player.onGround = false;
         this.player.yaw = Math.PI;
@@ -363,18 +364,21 @@ class BedwarsGame {
           id: 'blue_skywars', name: '蓝队人机', team: 'blue', difficulty,
           spawnPos: { x: 0, y: 0.6, z: -36 },
           spawnChestPos: { x: 0, y: 1, z: -39 },
+          initialBedPos: { x: 0, y: 1, z: -33 },
           initialState: 'LOOT_CHEST'
         }));
         this.bots.push(new Bot(this.scene, this.world, {
           id: 'green_skywars', name: '绿队人机', team: 'green', difficulty,
           spawnPos: { x: 36, y: 0.6, z: 0 },
           spawnChestPos: { x: 39, y: 1, z: 0 },
+          initialBedPos: { x: 33, y: 1, z: 0 },
           initialState: 'LOOT_CHEST'
         }));
         this.bots.push(new Bot(this.scene, this.world, {
           id: 'yellow_skywars', name: '黄队人机', team: 'yellow', difficulty,
           spawnPos: { x: -36, y: 0.6, z: 0 },
           spawnChestPos: { x: -39, y: 1, z: 0 },
+          initialBedPos: { x: -33, y: 1, z: 0 },
           initialState: 'LOOT_CHEST'
         }));
       } else {
@@ -383,6 +387,7 @@ class BedwarsGame {
 
         // Player on Island 1
         this.player.position.set(0, 1.2, 32);
+        this.player.spawnPoint = new THREE.Vector3(0, 1.2, 32);
         this.player.velocity.set(0, 0, 0);
         this.player.onGround = false;
         this.player.yaw = Math.PI;
@@ -400,6 +405,7 @@ class BedwarsGame {
           id: 'blue_skywars', name: '蓝队空岛人机', team: 'blue', difficulty,
           spawnPos: { x: 0, y: 0.6, z: -32 },
           spawnChestPos: { x: 0, y: 1, z: -35 },
+          initialBedPos: { x: 0, y: 1, z: -29 },
           initialState: 'LOOT_CHEST'
         }));
       }
