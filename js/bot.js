@@ -2477,6 +2477,18 @@ class Bot {
     }
   }
 
+  lookAt(x, y, z) {
+    const dx = x - this.position.x;
+    const dz = z - this.position.z;
+    this.yaw = Math.atan2(dx, dz);
+    this.targetYaw = this.yaw;
+    if (y !== undefined) {
+      const distXZ = Math.hypot(dx, dz);
+      const dy = y - (this.position.y + 1.5);
+      this.pitch = Math.atan2(dy, distXZ);
+    }
+  }
+
   applyPhysics(dt) {
     const halfW = 0.28;
 
