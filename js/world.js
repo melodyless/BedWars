@@ -465,8 +465,8 @@ class VoxelWorld {
         }
       }
     }
-    // Small oak tree
-    const tx = cx + 2, tz = cz;
+    // Small oak tree placed at island corner (cx + 3, cz + 3) so island center is wide open
+    const tx = cx + 3, tz = cz + 3;
     for (let h = 1; h <= 3; h++) {
       this.setBlock(tx, cy + h, tz, 'OAK_WOOD', false);
     }
@@ -493,6 +493,16 @@ class VoxelWorld {
 
       for (const pos of islandPositions) {
         this.createSkyWarsIsland(pos.x, 0, pos.z, 6);
+        // Clear space around island center to ensure player and bot never spawn inside blocks
+        for (let ox = -1; ox <= 1; ox++) {
+          for (let oz = -1; oz <= 1; oz++) {
+            for (let oy = 1; oy <= 3; oy++) {
+              if (this.getBlock(pos.x + ox, oy, pos.z + oz)) {
+                this.removeBlock(pos.x + ox, oy, pos.z + oz);
+              }
+            }
+          }
+        }
         this.setBlock(pos.chestPos.x, pos.chestPos.y, pos.chestPos.z, 'CHEST', false);
         this.registerChest(pos.chestPos.x, pos.chestPos.y, pos.chestPos.z, false);
       }
@@ -511,6 +521,14 @@ class VoxelWorld {
     } else {
       // 1v1 SkyWars
       this.createSkyWarsIsland(0, 0, 32, 6);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          for (let oy = 1; oy <= 3; oy++) {
+            if (this.getBlock(ox, oy, 32 + oz)) this.removeBlock(ox, oy, 32 + oz);
+            if (this.getBlock(ox, oy, -32 + oz)) this.removeBlock(ox, oy, -32 + oz);
+          }
+        }
+      }
       this.setBlock(0, 1, 35, 'CHEST', false);
       this.registerChest(0, 1, 35, false);
 

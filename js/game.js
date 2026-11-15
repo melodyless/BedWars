@@ -345,7 +345,9 @@ class BedwarsGame {
         this.teams = ['red', 'blue', 'green', 'yellow'];
 
         // Player Spawn on Red Island
-        this.player.position.set(0, 0.6, 36);
+        this.player.position.set(0, 1.2, 36);
+        this.player.velocity.set(0, 0, 0);
+        this.player.onGround = false;
         this.player.yaw = Math.PI;
         this.player.pitch = 0;
         this.player.armorTier = 'none';
@@ -380,7 +382,9 @@ class BedwarsGame {
         this.teams = ['red', 'blue'];
 
         // Player on Island 1
-        this.player.position.set(0, 0.6, 32);
+        this.player.position.set(0, 1.2, 32);
+        this.player.velocity.set(0, 0, 0);
+        this.player.onGround = false;
         this.player.yaw = Math.PI;
         this.player.pitch = 0;
         this.player.armorTier = 'none';

@@ -99,7 +99,7 @@ class Bot {
     this.weaponTier = 'wood'; // 'wood', 'stone', 'iron', 'diamond'
     this.damage = 4;
     this.woolCount = 36;
-    this.goldenApples = 0;
+    this.goldenApples = config.goldenApples !== undefined ? config.goldenApples : (config.hasGapple !== undefined ? config.hasGapple : 0);
     this.fireballs = 0;
     this.hasShears = false;
     this.hasDefendedBed = false;
@@ -109,8 +109,8 @@ class Bot {
     this.needsBedUpgrade = false;
     this.miningBlock = null; // { x, y, z, type, timer, requiredTime, lastSound }
     this._lastBedHitSound = 0;
-    this.hasBow = false;
-    this.arrowCount = 0;
+    this.hasBow = config.hasBow !== undefined ? config.hasBow : false;
+    this.arrowCount = config.arrowCount !== undefined ? config.arrowCount : (this.hasBow ? 32 : 0);
     this.bowCooldown = 0;
 
     // Resources
@@ -143,8 +143,14 @@ class Bot {
     this.state = config.initialState || 'GATHER';
     if (config.initialWeapon) this.weaponTier = config.initialWeapon;
     if (config.initialArmor) this.armorTier = config.initialArmor;
-    if (config.hasGapple !== undefined) this.hasGapple = config.hasGapple;
-    if (config.hasBow !== undefined) this.hasBow = config.hasBow;
+    if (config.hasGapple !== undefined) {
+      this.hasGapple = config.hasGapple;
+      this.goldenApples = config.hasGapple;
+    }
+    if (config.hasBow !== undefined) {
+      this.hasBow = config.hasBow;
+      if (this.arrowCount === 0 && this.hasBow) this.arrowCount = 32;
+    }
     this.stateTimer = 0;
     this.currentTarget = null; // Either player or enemy bot
 
@@ -968,7 +974,7 @@ class Bot {
     this.state = 'COMBAT';
 
     // Emergency golden apple consumption
-    if (this.health < 8 && this.goldenApples > 0) {
+    if (this.health <= 13 && this.goldenApples > 0 && this.healCooldown <= 0) {
       this.eatGoldenApple();
     }
 
@@ -1530,6 +1536,13 @@ class Bot {
 
   // Strategic Decision Maker: Evaluates whether to Gather Diamonds, Rush Emeralds, or Attack Enemy Bed
   chooseNextObjective(fromShop = false) {
+    // PvP Duel Mode: Always seek and hunt down enemy! Never bridge or gather resources.
+    if (window.game && window.game.currentMode === 'pvp_1v1') {
+      this.state = 'COMBAT';
+      this.stateTimer = 0;
+      return;
+    }
+
     const myTeam = this.teamData[this.team] || this.teamData.blue;
     const prefix = myTeam.prefix;
     const tu = (window.game && window.game.teamUpgrades && window.game.teamUpgrades[this.team]) ? window.game.teamUpgrades[this.team] : null;
@@ -1715,8 +1728,10 @@ class Bot {
             this.weaponTier = (this.difficulty === 'nightmare') ? 'iron' : 'stone';
             this.armorTier = (this.difficulty === 'nightmare') ? 'iron' : 'chain';
             this.woolCount = 32;
+            this.goldenApples = 2;
             this.hasGapple = 2;
             this.hasBow = true;
+            this.arrowCount = 32;
             this.updateEquipmentVisuals();
             if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
               window.soundManager.playChestOpen();
@@ -1744,6 +1759,7 @@ class Bot {
           if (this.weaponTier !== 'diamond') {
             this.weaponTier = 'diamond';
             this.armorTier = 'diamond';
+            this.goldenApples += 1;
             this.hasGapple += 1;
             this.updateEquipmentVisuals();
             if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
@@ -2334,23 +2350,33 @@ class Bot {
         const targetPos = target.pos;
         const curDist = this.position.distanceTo(targetPos);
 
-        // If target escaped too far, do not get stuck staring across the void: re-evaluate!
-        if (curDist > 12.0) {
-          this.chooseNextObjective();
-          break;
+        // 1. Emergency Golden Apple (Heal when below 13 HP)
+        if (this.health <= 13 && this.goldenApples > 0 && this.healCooldown <= 0) {
+          this.eatGoldenApple();
         }
 
-        // 1. Ranged Fireball Attack (at 8 - 22 blocks distance)
+        // If target escaped too far, do not get stuck staring across the void: re-evaluate!
+        const isPvPDuel = !!(window.game && window.game.currentMode === 'pvp_1v1');
+        if (curDist > 12.0) {
+          if (isPvPDuel) {
+            // In PvP mode, never exit COMBAT! Approach target aggressively
+            this.moveTo(targetPos.x, targetPos.z, this.sprintSpeed);
+            if (this.hasBow && this.arrowCount > 0 && this.bowCooldown <= 0) {
+              this.shootArrow(targetPos);
+            }
+            break;
+          } else {
+            this.chooseNextObjective();
+            break;
+          }
+        }
+
+        // 2. Ranged Fireball Attack (at 8 - 22 blocks distance)
         if (curDist > 8.0 && curDist < 22.0 && this.fireballs > 0 && this.fireballCooldown <= 0) {
           this.shootFireball(targetPos);
         }
         if (curDist > 7.0 && curDist < 26.0 && this.hasBow && this.arrowCount > 0 && this.bowCooldown <= 0) {
           this.shootArrow(targetPos);
-        }
-
-        // 2. Emergency Golden Apple
-        if (this.health < 9 && this.goldenApples > 0 && this.healCooldown <= 0) {
-          this.eatGoldenApple();
         }
 
         // 3. Pro PVP Circling & Dynamic Strafing (环绕走位)
