@@ -6,7 +6,10 @@
 
 ## 🎮 快速启动游戏
 
-### 方式 1：双击批处理脚本（推荐）
+### 🌐 方式 0：在线直接玩（免安装推荐）
+👉 **在线试玩地址：[https://melodyless.github.io/BedWars/](https://melodyless.github.io/BedWars/)**
+
+### 方式 1：双击批处理脚本（本地离线）
 在项目目录下直接双击运行：
 👉 `start_game.bat`
 
