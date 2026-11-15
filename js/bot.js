@@ -1543,6 +1543,47 @@ class Bot {
       return;
     }
 
+    // SkyWars Mode: Authentic SkyWars decision tree!
+    // 1. Loot spawn chest if not done yet
+    // 2. Bridge to Center Island to grab mega chests
+    // 3. Hunt down nearest alive enemy on other sky islands
+    if (window.game && window.game.currentMode && window.game.currentMode.startsWith('skywars')) {
+      this.activeBridgeAxis = null;
+      this.miningBlock = null;
+
+      // Check if enemy is nearby
+      const player = window.player;
+      const allBots = (window.game && window.game.bots) ? window.game.bots : [];
+      const { target, dist } = this.findTarget(player, allBots);
+      if (target) {
+        if (dist < 14.0) {
+          this.state = 'COMBAT';
+          this.currentTarget = target;
+          this.stateTimer = 0;
+          return;
+        }
+
+        // Bridge or march towards enemy island
+        this.state = 'COMBAT';
+        this.currentTarget = target;
+        this.stateTimer = 0;
+        return;
+      }
+
+      // If mid-island not reached, bridge to center (0, 0)
+      const distToMid = Math.hypot(this.position.x, this.position.z);
+      if (distToMid > 4.5 && this.weaponTier !== 'diamond') {
+        this.state = 'BRIDGE_MID';
+        this.stateTimer = 0;
+        return;
+      }
+
+      // Default to COMBAT seeking
+      this.state = 'COMBAT';
+      this.stateTimer = 0;
+      return;
+    }
+
     const myTeam = this.teamData[this.team] || this.teamData.blue;
     const prefix = myTeam.prefix;
     const tu = (window.game && window.game.teamUpgrades && window.game.teamUpgrades[this.team]) ? window.game.teamUpgrades[this.team] : null;
@@ -1771,6 +1812,9 @@ class Bot {
           }
           if (target) {
             this.state = 'COMBAT';
+            this.stateTimer = 0;
+          } else {
+            this.chooseNextObjective();
           }
         }
         break;
@@ -2357,12 +2401,24 @@ class Bot {
 
         // If target escaped too far, do not get stuck staring across the void: re-evaluate!
         const isPvPDuel = !!(window.game && window.game.currentMode === 'pvp_1v1');
+        const isSkyWars = !!(window.game && window.game.currentMode && window.game.currentMode.startsWith('skywars'));
+
         if (curDist > 12.0) {
           if (isPvPDuel) {
             // In PvP mode, never exit COMBAT! Approach target aggressively
             this.moveTo(targetPos.x, targetPos.z, this.sprintSpeed);
             if (this.hasBow && this.arrowCount > 0 && this.bowCooldown <= 0) {
               this.shootArrow(targetPos);
+            }
+            break;
+          } else if (isSkyWars) {
+            // In SkyWars mode, use bow or bridge/navigate towards enemy island!
+            if (this.hasBow && this.arrowCount > 0 && this.bowCooldown <= 0 && curDist < 26.0) {
+              this.shootArrow(targetPos);
+            }
+            const navRes = this.navigateAndBridge(targetPos.x, targetPos.z, true);
+            if (navRes === 'NO_WOOL' || navRes === 'ARRIVED') {
+              this.moveTo(targetPos.x, targetPos.z, this.sprintSpeed);
             }
             break;
           } else {
