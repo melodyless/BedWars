@@ -675,6 +675,47 @@ class SoundManager {
   playInventoryClose() {
     this.playSlotChange();
   }
+
+  // 21. SkyWars Chest Open & Close
+  playChestOpen() {
+    if (!this.ctx) return;
+    this.resume();
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      // Classic Minecraft creaking wooden chest hinge sound: 160Hz -> 420Hz
+      osc.frequency.setValueAtTime(160, now);
+      osc.frequency.exponentialRampToValueAtTime(430, now + 0.18);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.22);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.23);
+    } catch (e) {}
+  }
+
+  playChestClose() {
+    if (!this.ctx) return;
+    this.resume();
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      // Chest lid closing thud: 400Hz -> 140Hz
+      osc.frequency.setValueAtTime(400, now);
+      osc.frequency.exponentialRampToValueAtTime(140, now + 0.16);
+      gain.gain.setValueAtTime(0.20, now);
+      gain.gain.exponentialRampToValueAtTime(0.005, now + 0.19);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.20);
+    } catch (e) {}
+  }
 }
 
 window.soundManager = new SoundManager();

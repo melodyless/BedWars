@@ -3,6 +3,7 @@ class VoxelWorld {
   constructor(scene) {
     this.scene = scene;
     this.voxelMap = new Map(); // key -> { type, mesh, canBreak, team, hidden, instancedMesh, instanceIndex }
+    this.chests = new Map(); // key -> { x, y, z, isCenter, opened, items: [] }
     this.instancedMeshes = [];
     this.isGenerating = false;
     this.materials = {};
@@ -94,6 +95,15 @@ class VoxelWorld {
     this.materials['EMERALD_BLOCK'] = new THREE.MeshLambertMaterial({
       map: TextureGenerator.getMineralBlock('#17dd62', '#72fca5', '#097532')
     });
+
+    // 6-sided materials for CHEST (SkyWars)
+    const chestSide = new THREE.MeshLambertMaterial({ map: TextureGenerator.getChestSide() });
+    const chestTop = new THREE.MeshLambertMaterial({ map: TextureGenerator.getChestTop() });
+    const chestBottom = new THREE.MeshLambertMaterial({ map: TextureGenerator.getChestBottom() });
+    const chestFront = new THREE.MeshLambertMaterial({ map: TextureGenerator.getChestFront() });
+    this.materials['CHEST'] = [
+      chestSide, chestSide, chestTop, chestBottom, chestFront, chestSide
+    ];
   }
 
   getKey(x, y, z) {
@@ -112,6 +122,9 @@ class VoxelWorld {
         if (b.mesh) this.scene.remove(b.mesh);
       }
       this.voxelMap.clear();
+    }
+    if (this.chests) {
+      this.chests.clear();
     }
   }
 
@@ -168,8 +181,8 @@ class VoxelWorld {
     const typeGroups = {};
 
     for (const b of this.voxelMap.values()) {
-      // Beds and interactable special blocks are always visible
-      if (b.type.startsWith('BED_')) {
+      // Beds, chests and interactable special blocks are always visible
+      if (b.type.startsWith('BED_') || b.type === 'CHEST') {
         b.hidden = false;
         if (!typeGroups[b.type]) typeGroups[b.type] = [];
         typeGroups[b.type].push(b);
@@ -376,6 +389,185 @@ class VoxelWorld {
     }
   }
 
+  // SkyWars Chest Registration & Procedural Loot Generators
+  registerChest(x, y, z, isCenter = false) {
+    const key = this.getKey(x, y, z);
+    const items = isCenter ? this.generateCenterChestLoot() : this.generateSpawnChestLoot();
+    this.chests.set(key, {
+      x, y, z,
+      isCenter,
+      opened: false,
+      items: items
+    });
+  }
+
+  generateSpawnChestLoot() {
+    const loot = [
+      { id: 'sword_iron', name: '铁剑', type: 'weapon', count: 1, damage: 6 },
+      { id: 'armor_iron', name: '铁盔甲', type: 'armor', tier: 'iron', count: 1 },
+      { id: 'wood_planks', name: '橡木木板', type: 'block', blockType: 'OAK_PLANKS', count: 32 },
+      { id: 'golden_apple', name: '金苹果', type: 'utility', count: 2 },
+      { id: 'pickaxe_iron', name: '铁镐', type: 'tool', count: 1 },
+      { id: 'bow_normal', name: '木弓', type: 'bow', bowType: 'normal', count: 1 },
+      { id: 'arrow_16', name: '箭矢', type: 'arrow', count: 16 },
+      { id: 'potion_speed', name: '迅捷药水 II (45秒)', type: 'potion', potionType: 'speed', duration: 45, count: 1 }
+    ];
+
+    const slots = new Array(27).fill(null);
+    const usedIndices = new Set();
+    loot.forEach(item => {
+      let slotIdx;
+      do {
+        slotIdx = Math.floor(Math.random() * 27);
+      } while (usedIndices.has(slotIdx));
+      usedIndices.add(slotIdx);
+      slots[slotIdx] = { ...item };
+    });
+    return slots;
+  }
+
+  generateCenterChestLoot() {
+    const loot = [
+      { id: 'sword_diamond', name: '钻石剑', type: 'weapon', count: 1, damage: 7 },
+      { id: 'armor_diamond', name: '钻石盔甲', type: 'armor', tier: 'diamond', count: 1 },
+      { id: 'enchanted_golden_apple', name: '附魔金苹果', type: 'utility', count: 1 },
+      { id: 'ender_pearl', name: '末影珍珠', type: 'utility', count: 2 },
+      { id: 'bow_power', name: '力量弓 (增伤)', type: 'bow', bowType: 'power', count: 1 },
+      { id: 'arrow_16', name: '箭矢', type: 'arrow', count: 32 },
+      { id: 'fireball', name: '火焰弹', type: 'utility', count: 2 },
+      { id: 'potion_regen', name: '恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, count: 1 }
+    ];
+
+    const slots = new Array(27).fill(null);
+    const usedIndices = new Set();
+    loot.forEach(item => {
+      let slotIdx;
+      do {
+        slotIdx = Math.floor(Math.random() * 27);
+      } while (usedIndices.has(slotIdx));
+      usedIndices.add(slotIdx);
+      slots[slotIdx] = { ...item };
+    });
+    return slots;
+  }
+
+  createSkyWarsIsland(cx, cy, cz, radius = 6) {
+    for (let x = -radius; x <= radius; x++) {
+      for (let z = -radius; z <= radius; z++) {
+        const distSq = x * x + z * z;
+        if (distSq <= radius * radius) {
+          this.setBlock(cx + x, cy, cz + z, 'GRASS', false);
+          this.setBlock(cx + x, cy - 1, cz + z, 'DIRT', false);
+          const depth = Math.floor((1.0 - Math.sqrt(distSq) / radius) * 5);
+          for (let d = 2; d <= 2 + depth; d++) {
+            this.setBlock(cx + x, cy - d, cz + z, 'STONE', false);
+          }
+        }
+      }
+    }
+    // Small oak tree
+    const tx = cx + 2, tz = cz;
+    for (let h = 1; h <= 3; h++) {
+      this.setBlock(tx, cy + h, tz, 'OAK_WOOD', false);
+    }
+    for (let lx = -1; lx <= 1; lx++) {
+      for (let lz = -1; lz <= 1; lz++) {
+        this.setBlock(tx + lx, cy + 4, tz + lz, 'GREEN_WOOL', false);
+        if (Math.abs(lx) + Math.abs(lz) <= 1) {
+          this.setBlock(tx + lx, cy + 5, tz + lz, 'GREEN_WOOL', false);
+        }
+      }
+    }
+  }
+
+  generateSkyWarsMap(mode) {
+    this.bedStatus = { red: false, blue: false, green: false, yellow: false };
+
+    if (mode === 'skywars_4p') {
+      const islandPositions = [
+        { team: 'red', x: 0, z: 36, chestPos: { x: 0, y: 1, z: 39 } },
+        { team: 'blue', x: 0, z: -36, chestPos: { x: 0, y: 1, z: -39 } },
+        { team: 'green', x: 36, z: 0, chestPos: { x: 39, y: 1, z: 0 } },
+        { team: 'yellow', x: -36, z: 0, chestPos: { x: -39, y: 1, z: 0 } }
+      ];
+
+      for (const pos of islandPositions) {
+        this.createSkyWarsIsland(pos.x, 0, pos.z, 6);
+        this.setBlock(pos.chestPos.x, pos.chestPos.y, pos.chestPos.z, 'CHEST', false);
+        this.registerChest(pos.chestPos.x, pos.chestPos.y, pos.chestPos.z, false);
+      }
+
+      this.createThemedMiddleIsland(0, 0, 0, 11, {}, 'boogie');
+      const midChests = [
+        { x: 0, y: 1, z: 4 },
+        { x: 0, y: 1, z: -4 },
+        { x: 4, y: 1, z: 0 },
+        { x: -4, y: 1, z: 0 }
+      ];
+      for (const mc of midChests) {
+        this.setBlock(mc.x, mc.y, mc.z, 'CHEST', false);
+        this.registerChest(mc.x, mc.y, mc.z, true);
+      }
+    } else {
+      // 1v1 SkyWars
+      this.createSkyWarsIsland(0, 0, 32, 6);
+      this.setBlock(0, 1, 35, 'CHEST', false);
+      this.registerChest(0, 1, 35, false);
+
+      this.createSkyWarsIsland(0, 0, -32, 6);
+      this.setBlock(0, 1, -35, 'CHEST', false);
+      this.registerChest(0, 1, -35, false);
+
+      this.createThemedMiddleIsland(0, 0, 0, 10, {}, 'boogie');
+      const midChests = [
+        { x: 0, y: 1, z: 3 },
+        { x: 0, y: 1, z: -3 },
+        { x: 3, y: 1, z: 0 },
+        { x: -3, y: 1, z: 0 }
+      ];
+      for (const mc of midChests) {
+        this.setBlock(mc.x, mc.y, mc.z, 'CHEST', false);
+        this.registerChest(mc.x, mc.y, mc.z, true);
+      }
+    }
+  }
+
+  generatePvPArena() {
+    this.bedStatus = { red: false, blue: false, green: false, yellow: false };
+    const r = 11;
+    for (let x = -r; x <= r; x++) {
+      for (let z = -r; z <= r; z++) {
+        const isBorder = (Math.abs(x) === r || Math.abs(z) === r);
+        const dist = Math.hypot(x, z);
+
+        if (dist < 4) {
+          this.setBlock(x, 0, z, (x + z) % 2 === 0 ? 'PURPUR' : 'STONE_BRICK', false);
+        } else {
+          this.setBlock(x, 0, z, 'STONE_BRICK', false);
+        }
+        this.setBlock(x, -1, z, 'STONE', false);
+
+        if (isBorder) {
+          this.setBlock(x, 1, z, 'STONE_BRICK', false);
+          this.setBlock(x, 2, z, 'MOSSY_STONE_BRICK', false);
+          if (Math.abs(x) === r && Math.abs(z) === r) {
+            this.setBlock(x, 3, z, 'STONE_BRICK', false);
+            this.setBlock(x, 4, z, 'GLOWSTONE', false);
+          }
+        }
+      }
+    }
+    // Midfield spectator / tactical pillars
+    const pillars = [
+      { x: -6, z: 0 },
+      { x: 6, z: 0 }
+    ];
+    for (const p of pillars) {
+      this.setBlock(p.x, 1, p.z, 'STONE_BRICK', false);
+      this.setBlock(p.x, 2, p.z, 'GLOWSTONE', false);
+    }
+  }
+
   // Generate Multi-Theme Bedwars Floating Island World with Distinct Layouts
   generateWorld(mode = '2teams', mapType = 'boogie') {
     this.mode = mode;
@@ -383,7 +575,11 @@ class VoxelWorld {
 
     this.isGenerating = true;
 
-    if (mapType === 'castle') {
+    if (mode === 'pvp_1v1' || mapType === 'arena') {
+      this.generatePvPArena();
+    } else if (mode.startsWith('skywars') || mapType === 'skywars') {
+      this.generateSkyWarsMap(mode);
+    } else if (mapType === 'castle') {
       this.generateCastleMap(mode);
     } else if (mapType === 'nether') {
       this.generateNetherMap(mode);

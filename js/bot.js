@@ -138,8 +138,13 @@ class Bot {
     this.patrolTimer = 0;
     this.patrolTarget = 'bed';
 
-    // AI States: 'GATHER', 'SHOP', 'DEFEND_BED', 'BRIDGE', 'ATTACK_BED', 'COMBAT', 'GATHER_DIAMOND', 'GATHER_EMERALD', 'PATROL_BASE', 'FOLLOW_PLAYER'
-    this.state = 'GATHER';
+    // AI States: 'GATHER', 'SHOP', 'DEFEND_BED', 'BRIDGE', 'ATTACK_BED', 'COMBAT', 'GATHER_DIAMOND', 'GATHER_EMERALD', 'PATROL_BASE', 'FOLLOW_PLAYER', 'LOOT_CHEST', 'BRIDGE_MID'
+    this.spawnChestPos = config.spawnChestPos || null;
+    this.state = config.initialState || 'GATHER';
+    if (config.initialWeapon) this.weaponTier = config.initialWeapon;
+    if (config.initialArmor) this.armorTier = config.initialArmor;
+    if (config.hasGapple !== undefined) this.hasGapple = config.hasGapple;
+    if (config.hasBow !== undefined) this.hasBow = config.hasBow;
     this.stateTimer = 0;
     this.currentTarget = null; // Either player or enemy bot
 
@@ -1695,6 +1700,66 @@ class Bot {
     }
 
     switch (this.state) {
+      case 'LOOT_CHEST': {
+        if (!this.spawnChestPos) {
+          this.state = 'COMBAT';
+          break;
+        }
+        const distToChest = Math.hypot(this.spawnChestPos.x - this.position.x, this.spawnChestPos.z - this.position.z);
+        if (distToChest > 2.0) {
+          this.moveTo(this.spawnChestPos.x, this.spawnChestPos.z, this.speed * 0.95);
+        } else {
+          this.lookAt(this.spawnChestPos.x, this.spawnChestPos.y, this.spawnChestPos.z);
+          if (this.stateTimer > 0.8) {
+            // Finished looting
+            this.weaponTier = (this.difficulty === 'nightmare') ? 'iron' : 'stone';
+            this.armorTier = (this.difficulty === 'nightmare') ? 'iron' : 'chain';
+            this.woolCount = 32;
+            this.hasGapple = 2;
+            this.hasBow = true;
+            this.updateEquipmentVisuals();
+            if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
+              window.soundManager.playChestOpen();
+            }
+            if (window.game) {
+              window.game.addChatMessage(`${myTeam.prefix}${this.name} 开启了战利品箱子并装备武器！`);
+            }
+            this.state = 'BRIDGE_MID';
+            this.stateTimer = 0;
+          }
+        }
+        break;
+      }
+
+      case 'BRIDGE_MID': {
+        if (target && dist < 12.0) {
+          this.state = 'COMBAT';
+          break;
+        }
+        const distToMid = Math.hypot(this.position.x, this.position.z);
+        if (distToMid > 5.0) {
+          this.navigateAndBridge(0, 0, true);
+        } else {
+          // Reached Center Mega Island!
+          if (this.weaponTier !== 'diamond') {
+            this.weaponTier = 'diamond';
+            this.armorTier = 'diamond';
+            this.hasGapple += 1;
+            this.updateEquipmentVisuals();
+            if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
+              window.soundManager.playChestOpen();
+            }
+            if (window.game) {
+              window.game.addChatMessage(`${myTeam.prefix}${this.name} 夺取了中岛豪华神箱（获得全套钻石装备）！`);
+            }
+          }
+          if (target) {
+            this.state = 'COMBAT';
+          }
+        }
+        break;
+      }
+
       case 'GATHER': {
         // Return to base generator to accumulate iron & gold
         const distToGen = Math.hypot(myTeam.gen.x - this.position.x, myTeam.gen.z - this.position.z);

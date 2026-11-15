@@ -327,6 +327,38 @@
       </div>
     </div>
 
+    <!-- SkyWars Chest Loot Modal -->
+    <div id="chest-modal" class="chest-modal-container" style="display: none;">
+      <div class="chest-modal-dialog">
+        <!-- Header -->
+        <div class="chest-modal-header">
+          <div class="chest-modal-title">
+            <span>📦 空岛战利品箱子 (SkyWars Chest)</span>
+            <span class="chest-badge">轻点/右键拿取 · ESC关闭</span>
+          </div>
+          <button id="chest-close-btn" class="chest-modal-close-btn" type="button" title="关闭 (ESC / E)">✖</button>
+        </div>
+
+        <!-- Action bar -->
+        <div class="chest-action-bar">
+          <button id="chest-take-all-btn" class="chest-take-all-btn" type="button">⚡ 一键全部拿取 (Take All)</button>
+          <span class="chest-hint">点击箱内物品单件快速拾取，更高阶护甲自动穿戴！</span>
+        </div>
+
+        <!-- 27-slot Chest Content Grid -->
+        <div class="chest-section-title">
+          <span>📦 箱内战备物资 (27 格)</span>
+        </div>
+        <div id="chest-grid" class="minecraft-grid chest-27-grid"></div>
+
+        <!-- Bottom Player Hotbar Mirror -->
+        <div class="chest-section-title" style="margin-top: 10px;">
+          <span>🎒 你的底部快捷栏 (1 - 9 键)</span>
+        </div>
+        <div id="chest-player-hotbar-grid" class="minecraft-grid hotbar-9-grid"></div>
+      </div>
+    </div>
+
     <!-- Start / Instruction Screen -->
     <div id="start-screen">
       <div class="start-box">
@@ -355,23 +387,31 @@
             </button>
           </div>
 
-          <div class="mode-select-title" style="margin-top: 10px;">选择游戏对战模式：</div>
+          <div class="mode-select-title" style="margin-top: 10px;">选择游戏玩法与对战模式：</div>
           <div class="mode-options-grid">
             <button class="mode-btn active" data-mode="2teams" data-teamsize="1">
-              <span class="mode-name">经典单挑 1v1</span>
-              <span class="mode-desc">2队 (红队 vs 蓝队)</span>
+              <span class="mode-name">🛏️ 起床单挑 1v1</span>
+              <span class="mode-desc">经典群岛 · 偷床终结</span>
             </button>
             <button class="mode-btn" data-mode="2teams" data-teamsize="2">
-              <span class="mode-name">双人配合 2v2</span>
-              <span class="mode-desc">红队(双人) vs 蓝队(双人)</span>
+              <span class="mode-name">🛏️ 起床双人 2v2</span>
+              <span class="mode-desc">红队双人 · 战术协同</span>
             </button>
             <button class="mode-btn" data-mode="4teams" data-teamsize="1">
-              <span class="mode-name">四队单挑 1v1v1v1</span>
-              <span class="mode-desc">4队混战 (红/蓝/绿/黄)</span>
+              <span class="mode-name">🛏️ 起床四队混战</span>
+              <span class="mode-desc">4队单挑 · 四路角逐</span>
             </button>
-            <button class="mode-btn" data-mode="4teams" data-teamsize="2">
-              <span class="mode-name">四队双人 2v2v2v2</span>
-              <span class="mode-desc">8人史诗军团混战</span>
+            <button class="mode-btn" data-mode="skywars_1v1" data-teamsize="1">
+              <span class="mode-name">🏝️ 空岛战争 1v1</span>
+              <span class="mode-desc">开箱夺装 · 搭桥抢中</span>
+            </button>
+            <button class="mode-btn" data-mode="skywars_4p" data-teamsize="1">
+              <span class="mode-name">🏝️ 空岛战争 4人混战</span>
+              <span class="mode-desc">4浮岛开箱 · 中岛神箱</span>
+            </button>
+            <button class="mode-btn" data-mode="pvp_1v1" data-teamsize="1">
+              <span class="mode-name">⚔️ 纯粹 PVP 决斗</span>
+              <span class="mode-desc">满配神装 · 落地开打</span>
             </button>
           </div>
 
@@ -416,6 +456,10 @@
             • <b>搭桥神器</b>：点击十字键中心【❖】<b>锁定潜行</b>，搭桥永远不失误掉虚空；按住【🧱放置/使用】向前跑即可<b>极速搭桥</b>！<br>
             • <b>右手战斗</b>：【⚔️】攻击敌人与长按挖掘，【▲】跳跃跳劈双倍暴击，【🧱】手持弓箭时长按蓄力射箭，手持药水/金苹果点击使用！<br>
             • <b>视角控制</b>：在屏幕右半边空白区域任意滑动即可丝滑转动镜头，轻点空白区域也可直接攻击！
+          </div>
+          <div class="inst-tip" style="color: #fde047; background: rgba(161, 98, 7, 0.25); border-left: 3px solid #eab308;">
+            🏝️ <b>全新【空岛战争】模式</b>：落地第一时间右键或轻点<b>【开箱】</b>搜刮武器、护甲、金苹果与搭桥方块！一键全部拿取并自动穿戴护甲，搭桥抢占中岛豪华钻石神箱！<br>
+            ⚔️ <b>全新【纯粹 PVP 决斗】模式</b>：落地直接发放满配<b>全套钻石神装、附魔金苹果、力量弓箭与迅捷药水</b>！无床无发育，纯拼走位、下落跳劈双倍暴击与战斗身法！
           </div>
           <div class="inst-tip">★ <b>全新背包系统</b>：按 <b>B / E 键</b>随时展开 36 格背包仓库，支持 Shift 一键转移、自由互换与一键智能整理！</div>
           <div class="inst-tip">★ <b>全新药水系统</b>：村民商店新增<b>迅捷 II、跳跃 V、隐形药水、恢复药水</b>！手持右键即可饮用，隐身可骗过人机索敌，迅捷大幅加速！</div>

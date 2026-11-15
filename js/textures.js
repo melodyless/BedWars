@@ -335,6 +335,137 @@ const TextureGenerator = {
     return this.toThreeTexture(canvas);
   },
 
+  // 16x16 Minecraft SkyWars Chest Textures
+  getChestTop() {
+    if (this.cache['chest_top']) return this.cache['chest_top'];
+    const { canvas, ctx } = this.createCanvas();
+    // Base wood
+    ctx.fillStyle = '#8e5b2b';
+    ctx.fillRect(0, 0, 16, 16);
+    // Wood grain noise
+    const woodColors = ['#835326', '#94612f', '#7d4e23', '#8e5b2b'];
+    for (let x = 1; x < 15; x++) {
+      for (let y = 1; y < 15; y++) {
+        if (Math.random() < 0.35) {
+          ctx.fillStyle = woodColors[Math.floor(Math.random() * woodColors.length)];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    // Outer border
+    ctx.fillStyle = '#3c2510';
+    ctx.fillRect(0, 0, 16, 1);
+    ctx.fillRect(0, 15, 16, 1);
+    ctx.fillRect(0, 0, 1, 16);
+    ctx.fillRect(15, 0, 1, 16);
+    // Corner reinforced brackets
+    ctx.fillStyle = '#261709';
+    ctx.fillRect(0, 0, 3, 2);
+    ctx.fillRect(0, 0, 2, 3);
+    ctx.fillRect(13, 0, 3, 2);
+    ctx.fillRect(14, 0, 2, 3);
+    ctx.fillRect(0, 14, 3, 2);
+    ctx.fillRect(0, 13, 2, 3);
+    ctx.fillRect(13, 14, 3, 2);
+    ctx.fillRect(14, 13, 2, 3);
+
+    const tex = this.toThreeTexture(canvas);
+    this.cache['chest_top'] = tex;
+    return tex;
+  },
+
+  getChestSide() {
+    if (this.cache['chest_side']) return this.cache['chest_side'];
+    const { canvas, ctx } = this.createCanvas();
+    // Base wood
+    ctx.fillStyle = '#8e5b2b';
+    ctx.fillRect(0, 0, 16, 16);
+    const woodColors = ['#835326', '#94612f', '#7d4e23'];
+    for (let x = 1; x < 15; x++) {
+      for (let y = 1; y < 15; y++) {
+        if (Math.random() < 0.35) {
+          ctx.fillStyle = woodColors[Math.floor(Math.random() * woodColors.length)];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    // Border
+    ctx.fillStyle = '#3c2510';
+    ctx.fillRect(0, 0, 16, 1);
+    ctx.fillRect(0, 15, 16, 1);
+    ctx.fillRect(0, 0, 1, 16);
+    ctx.fillRect(15, 0, 1, 16);
+    // Lid horizontal seam at y=5
+    ctx.fillStyle = '#2a190a';
+    ctx.fillRect(0, 5, 16, 1);
+    // Metal corner rivets
+    ctx.fillStyle = '#261709';
+    ctx.fillRect(1, 1, 2, 2);
+    ctx.fillRect(13, 1, 2, 2);
+    ctx.fillRect(1, 13, 2, 2);
+    ctx.fillRect(13, 13, 2, 2);
+
+    const tex = this.toThreeTexture(canvas);
+    this.cache['chest_side'] = tex;
+    return tex;
+  },
+
+  getChestBottom() {
+    if (this.cache['chest_bottom']) return this.cache['chest_bottom'];
+    const { canvas, ctx } = this.createCanvas();
+    ctx.fillStyle = '#6a431d';
+    ctx.fillRect(0, 0, 16, 16);
+    ctx.fillStyle = '#3c2510';
+    ctx.fillRect(0, 0, 16, 1);
+    ctx.fillRect(0, 15, 16, 1);
+    ctx.fillRect(0, 0, 1, 16);
+    ctx.fillRect(15, 0, 1, 16);
+    const tex = this.toThreeTexture(canvas);
+    this.cache['chest_bottom'] = tex;
+    return tex;
+  },
+
+  getChestFront() {
+    if (this.cache['chest_front']) return this.cache['chest_front'];
+    const { canvas, ctx } = this.createCanvas();
+    // Same as side
+    ctx.fillStyle = '#8e5b2b';
+    ctx.fillRect(0, 0, 16, 16);
+    const woodColors = ['#835326', '#94612f', '#7d4e23'];
+    for (let x = 1; x < 15; x++) {
+      for (let y = 1; y < 15; y++) {
+        if (Math.random() < 0.35) {
+          ctx.fillStyle = woodColors[Math.floor(Math.random() * woodColors.length)];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    // Border
+    ctx.fillStyle = '#3c2510';
+    ctx.fillRect(0, 0, 16, 1);
+    ctx.fillRect(0, 15, 16, 1);
+    ctx.fillRect(0, 0, 1, 16);
+    ctx.fillRect(15, 0, 1, 16);
+    // Lid seam
+    ctx.fillStyle = '#2a190a';
+    ctx.fillRect(0, 5, 16, 1);
+
+    // Silver Lock Latch at x=7..8, y=4..7
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(6, 3, 4, 6);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(7, 4, 2, 4);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(8, 4, 1, 4);
+    // Keyhole
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(7, 6, 2, 1);
+
+    const tex = this.toThreeTexture(canvas);
+    this.cache['chest_front'] = tex;
+    return tex;
+  },
+
   // Bed textures
   getBedTexture(teamColor = 'red') {
     const key = `bed_${teamColor}`;

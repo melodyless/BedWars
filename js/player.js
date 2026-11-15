@@ -55,6 +55,10 @@ class Player {
     this.backpackIsOpen = false;
     this.selectedBackpackSlot = null; // { location: 'hotbar' | 'backpack', index: number }
 
+    // SkyWars Chest Interaction
+    this.chestIsOpen = false;
+    this.activeChest = null;
+
     // Active Potion Effects (remaining time in seconds)
     this.effects = {
       speed: 0,
@@ -101,6 +105,7 @@ class Player {
     this.initHandModel();
     this.bindEvents();
     this.initBackpackUI();
+    this.initChestUI();
     this.updateHUD();
   }
 
@@ -232,12 +237,18 @@ class Player {
       }
 
       if (e.code === 'KeyB') {
+        if (this.chestIsOpen) {
+          this.closeChest();
+          return;
+        }
         this.toggleBackpack();
         return;
       }
 
       if (e.code === 'KeyE') {
-        if (window.shopManager && window.shopManager.isOpen) {
+        if (this.chestIsOpen) {
+          this.closeChest();
+        } else if (window.shopManager && window.shopManager.isOpen) {
           window.shopManager.closeShop();
         } else if (window.teammateManager && window.teammateManager.isOpen) {
           window.teammateManager.closeModal();
@@ -250,6 +261,10 @@ class Player {
       }
 
       if (e.code === 'Escape') {
+        if (this.chestIsOpen) {
+          this.closeChest();
+          return;
+        }
         if (this.backpackIsOpen) {
           this.closeBackpack();
           return;
@@ -630,7 +645,28 @@ class Player {
       -Math.cos(this.yaw) * Math.cos(this.pitch)
     ).normalize();
 
-    // 1. Check Villager shopkeeper interaction
+    // 1. Check SkyWars Chest interaction
+    const chestRay = this.world.raycast(origin, dir, 4.5);
+    if (chestRay.hit && chestRay.block && chestRay.block.type === 'CHEST') {
+      this.openChest(chestRay.block.x, chestRay.block.y, chestRay.block.z);
+      return;
+    }
+    if (!chestRay.hit || chestRay.block.type !== 'CHEST') {
+      if (this.world.chests) {
+        for (const [key, c] of this.world.chests.entries()) {
+          const cVec = new THREE.Vector3(c.x, c.y, c.z);
+          if (this.position.distanceTo(cVec) <= 3.2) {
+            const toC = cVec.clone().sub(origin).normalize();
+            if (dir.dot(toC) > 0.55) {
+              this.openChest(c.x, c.y, c.z);
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    // 2. Check Villager shopkeeper interaction
     if (window.shopManager && window.shopManager.checkVillagerInteract(origin, dir)) {
       window.shopManager.openShop();
       return;
@@ -1598,16 +1634,29 @@ class Player {
       this.die('void');
     }
 
-    // 6. Villager Look-at Hint
+    // 6. Look-at Hint (Villager or SkyWars Chest)
     const hintEl = document.getElementById('npc-hint');
-    if (hintEl && window.shopManager) {
+    if (hintEl) {
       const origin = new THREE.Vector3(this.position.x, this.position.y + this.eyeHeight, this.position.z);
       const dir = new THREE.Vector3(
         -Math.sin(this.yaw) * Math.cos(this.pitch),
         Math.sin(this.pitch),
         -Math.cos(this.yaw) * Math.cos(this.pitch)
       ).normalize();
-      hintEl.style.display = window.shopManager.checkVillagerInteract(origin, dir) ? 'block' : 'none';
+
+      const chestRay = this.world.raycast(origin, dir, 4.5);
+      const isChest = chestRay.hit && chestRay.block && chestRay.block.type === 'CHEST';
+      const isVillager = window.shopManager && window.shopManager.checkVillagerInteract(origin, dir);
+
+      if (isChest) {
+        hintEl.innerText = '📦 右键或轻点打开战利品箱子';
+        hintEl.style.display = 'block';
+      } else if (isVillager) {
+        hintEl.innerText = '右键点击打开商店';
+        hintEl.style.display = 'block';
+      } else {
+        hintEl.style.display = 'none';
+      }
     }
 
     // 7. Update Camera position & rotation with smooth sneak crouch
@@ -2120,6 +2169,181 @@ class Player {
     }
 
     container.innerHTML = html;
+  }
+
+  // =========================================================
+  // SkyWars Chest Interaction & Loot Methods
+  // =========================================================
+  initChestUI() {
+    const closeBtn = document.getElementById('chest-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => this.closeChest());
+    }
+    const takeAllBtn = document.getElementById('chest-take-all-btn');
+    if (takeAllBtn) {
+      takeAllBtn.addEventListener('click', () => this.takeAllChestItems());
+    }
+    const modal = document.getElementById('chest-modal');
+    if (modal) {
+      modal.addEventListener('click', e => {
+        if (e.target === modal) {
+          this.closeChest();
+        }
+      });
+    }
+  }
+
+  openChest(x, y, z) {
+    if (this.isDead) return;
+    const key = this.world.getKey(x, y, z);
+    let chest = this.world.chests.get(key);
+    if (!chest) {
+      this.world.registerChest(x, y, z, false);
+      chest = this.world.chests.get(key);
+    }
+    this.activeChest = chest;
+    this.chestIsOpen = true;
+
+    if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
+      window.soundManager.playChestOpen();
+    }
+
+    if (document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (err) {}
+    }
+
+    const modal = document.getElementById('chest-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      this.renderChestUI();
+    }
+  }
+
+  closeChest() {
+    this.chestIsOpen = false;
+    this.activeChest = null;
+    const modal = document.getElementById('chest-modal');
+    if (modal) modal.style.display = 'none';
+
+    if (window.soundManager && typeof window.soundManager.playChestClose === 'function') {
+      window.soundManager.playChestClose();
+    }
+  }
+
+  takeAllChestItems() {
+    if (!this.activeChest || !this.activeChest.items) return;
+    let tookAny = false;
+    const armorRanks = { none: 0, chain: 1, iron: 2, diamond: 3 };
+
+    for (let i = 0; i < this.activeChest.items.length; i++) {
+      const item = this.activeChest.items[i];
+      if (!item) continue;
+
+      if (item.type === 'armor') {
+        const currentRank = armorRanks[this.armorTier] || 0;
+        const newRank = armorRanks[item.tier] || 0;
+        if (newRank > currentRank) {
+          this.armorTier = item.tier;
+          this.updateHUD();
+          if (window.game) window.game.addChatMessage(`§a自动穿上 ${item.name}！护甲大幅提升！`);
+        } else {
+          this.addItem({ ...item });
+        }
+        this.activeChest.items[i] = null;
+        tookAny = true;
+      } else {
+        const success = this.addItem({ ...item });
+        if (success) {
+          this.activeChest.items[i] = null;
+          tookAny = true;
+        }
+      }
+    }
+
+    if (tookAny) {
+      if (window.soundManager && typeof window.soundManager.playPickup === 'function') {
+        window.soundManager.playPickup();
+      }
+      this.updateHUD();
+      this.renderChestUI();
+    }
+  }
+
+  takeSingleChestItem(slotIndex) {
+    if (!this.activeChest || !this.activeChest.items) return;
+    const item = this.activeChest.items[slotIndex];
+    if (!item) return;
+
+    const armorRanks = { none: 0, chain: 1, iron: 2, diamond: 3 };
+    if (item.type === 'armor') {
+      const currentRank = armorRanks[this.armorTier] || 0;
+      const newRank = armorRanks[item.tier] || 0;
+      if (newRank > currentRank) {
+        this.armorTier = item.tier;
+        this.updateHUD();
+        if (window.game) window.game.addChatMessage(`§a自动穿上 ${item.name}！护甲提升！`);
+      } else {
+        this.addItem({ ...item });
+      }
+      this.activeChest.items[slotIndex] = null;
+    } else {
+      const success = this.addItem({ ...item });
+      if (success) {
+        this.activeChest.items[slotIndex] = null;
+      }
+    }
+
+    if (window.soundManager && typeof window.soundManager.playPickup === 'function') {
+      window.soundManager.playPickup();
+    }
+    this.updateHUD();
+    this.renderChestUI();
+  }
+
+  renderChestUI() {
+    if (!this.activeChest) return;
+    const grid = document.getElementById('chest-grid');
+    const playerGrid = document.getElementById('chest-player-hotbar-grid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    const items = this.activeChest.items || [];
+    for (let i = 0; i < 27; i++) {
+      const item = items[i];
+      const slotDiv = document.createElement('div');
+      slotDiv.className = 'mc-slot';
+      if (item) {
+        const iconUrl = TextureGenerator.getItemIcon(item.id || item.type);
+        slotDiv.innerHTML = `
+          <img class="slot-icon" src="${iconUrl}" alt="${item.name}">
+          ${(item.count && item.count > 1) ? `<span class="slot-count">${item.count}</span>` : ''}
+          <div class="slot-tooltip">${item.name}</div>
+        `;
+        slotDiv.onclick = (e) => {
+          e.stopPropagation();
+          this.takeSingleChestItem(i);
+        };
+      }
+      grid.appendChild(slotDiv);
+    }
+
+    if (playerGrid) {
+      playerGrid.innerHTML = '';
+      for (let i = 0; i < 9; i++) {
+        const item = this.hotbar[i];
+        const slotDiv = document.createElement('div');
+        slotDiv.className = `mc-slot ${i === this.selectedSlot ? 'active' : ''}`;
+        if (item) {
+          const iconUrl = TextureGenerator.getItemIcon(item.id || item.type);
+          slotDiv.innerHTML = `
+            <img class="slot-icon" src="${iconUrl}" alt="${item.name}">
+            ${(item.count && item.count > 1) ? `<span class="slot-count">${item.count}</span>` : ''}
+            <div class="slot-tooltip">${item.name}</div>
+          `;
+        }
+        playerGrid.appendChild(slotDiv);
+      }
+    }
   }
 
   // =========================================================

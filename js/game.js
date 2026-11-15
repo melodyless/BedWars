@@ -163,9 +163,18 @@ class BedwarsGame {
   updateStartButtonSummary() {
     const startBtn = document.getElementById('start-btn');
     if (!startBtn) return;
-    const modeName = this.selectedMode === '4teams' ?
-      (this.selectedTeamSize === 2 ? '四队双人 2v2v2v2' : '四队单挑 1v1v1v1') :
-      (this.selectedTeamSize === 2 ? '双人配合 2v2' : '经典单挑 1v1');
+    let modeName = '经典单挑 1v1';
+    if (this.selectedMode === 'pvp_1v1') {
+      modeName = '⚔️ 纯粹 PVP 决斗';
+    } else if (this.selectedMode === 'skywars_1v1') {
+      modeName = '🏝️ 空岛战争 1v1';
+    } else if (this.selectedMode === 'skywars_4p') {
+      modeName = '🏝️ 空岛战争 4人混战';
+    } else if (this.selectedMode === '4teams') {
+      modeName = (this.selectedTeamSize === 2 ? '四队双人 2v2v2v2' : '四队单挑 1v1v1v1');
+    } else {
+      modeName = (this.selectedTeamSize === 2 ? '双人配合 2v2' : '经典单挑 1v1');
+    }
     const mapName = (this.mapThemes[this.selectedMap] && this.mapThemes[this.selectedMap].name) || '布吉浮岛';
     const diffMap = {
       'normal': '普通人机',
@@ -173,7 +182,7 @@ class BedwarsGame {
       'nightmare': '职业噩梦人机'
     };
     const diffName = diffMap[this.selectedDifficulty] || '高手身法人机';
-    startBtn.innerHTML = `⚡ 开始战斗 [${mapName} · ${modeName} · ${diffName}] ⚡<div style="font-size: 13px; font-weight: normal; opacity: 0.9; margin-top: 2px;">(点击开始 / 触屏点按 / 按回车键进入游戏)</div>`;
+    startBtn.innerHTML = `⚡ 开始战斗 [${modeName} · ${diffName}] ⚡<div style="font-size: 13px; font-weight: normal; opacity: 0.9; margin-top: 2px;">(点击开始 / 触屏点按 / 按回车键进入游戏)</div>`;
   }
 
   returnToMainMenu() {
@@ -191,6 +200,9 @@ class BedwarsGame {
     if (shopModal) shopModal.style.display = 'none';
     const teamModal = document.getElementById('team-modal');
     if (teamModal) teamModal.style.display = 'none';
+    const chestModal = document.getElementById('chest-modal');
+    if (chestModal) chestModal.style.display = 'none';
+    if (window.player && window.player.chestIsOpen) window.player.closeChest();
     if (window.TeammateManager) window.TeammateManager.isOpen = false;
     const startScreen = document.getElementById('start-screen');
     if (startScreen) startScreen.style.display = 'flex';
@@ -270,22 +282,124 @@ class BedwarsGame {
       this.touchControls.setPlayer(this.player);
     }
 
-    // 4. Resource Generators
+    // 4. Resource Generators & Shop NPCs
+    const isPvp = (mode === 'pvp_1v1');
+    const isSkyWars = (mode && mode.startsWith('skywars'));
+
     this.generatorManager = new GeneratorManager(this.scene);
     this.generators = this.generatorManager; // Alias
-    this.generatorManager.initSpawners(mode);
+    if (!isPvp && !isSkyWars) {
+      this.generatorManager.initSpawners(mode);
+    }
 
-    // 5. Shop Manager (reuse existing instance to prevent duplicate DOM events)
     if (!this.shopManager) {
       this.shopManager = new ShopManager(this.scene, this.player);
     } else {
       this.shopManager.player = this.player;
     }
-    this.shopManager.initVillagerNPCs(mode);
+    if (!isPvp && !isSkyWars) {
+      this.shopManager.initVillagerNPCs(mode);
+    }
     window.shopManager = this.shopManager;
 
-    // 6. Spawn Bots based on Mode and Team Size
-    if (mode === '4teams') {
+    const resDisplay = document.getElementById('resources-display');
+    if (resDisplay) {
+      resDisplay.style.display = (isPvp || isSkyWars) ? 'none' : 'flex';
+    }
+
+    // 5. Spawn Bots & Configure Equipment based on Mode
+    if (isPvp) {
+      this.teams = ['red', 'blue'];
+
+      // Player Spawn: Duel Arena North side, Facing South directly at opponent
+      this.player.position.set(0, 0.6, 7);
+      this.player.yaw = 0;
+      this.player.pitch = 0;
+      this.player.armorTier = 'diamond';
+      this.player.hotbar = [
+        { id: 'sword_diamond', name: '钻石剑', type: 'weapon', count: 1, damage: 7 },
+        { id: 'golden_apple', name: '金苹果 x4', type: 'utility', count: 4 },
+        { id: 'enchanted_golden_apple', name: '附魔金苹果 x2', type: 'utility', count: 2 },
+        { id: 'bow_power', name: '力量弓 (增伤)', type: 'bow', bowType: 'power', count: 1 },
+        { id: 'arrow_16', name: '箭矢 x32', type: 'arrow', count: 32 },
+        { id: 'wood_planks', name: '橡木木板 x64', type: 'block', blockType: 'OAK_PLANKS', count: 64 },
+        { id: 'pickaxe_diamond', name: '钻石镐', type: 'tool', count: 1 },
+        { id: 'potion_speed', name: '迅捷药水 II (45秒)', type: 'potion', potionType: 'speed', duration: 45, count: 1 },
+        { id: 'ender_pearl', name: '末影珍珠 x2', type: 'utility', count: 2 }
+      ];
+      this.player.updateHUD();
+      this.player.updateHeldItemVisual();
+
+      // Bot Spawn: Duel Arena South side, Fully armed with diamond equipment in COMBAT state
+      this.bots.push(new Bot(this.scene, this.world, {
+        id: 'blue_pvp', name: '蓝队决斗大师', team: 'blue', difficulty,
+        spawnPos: { x: 0, y: 0.6, z: -7 },
+        initialState: 'COMBAT',
+        initialWeapon: 'diamond',
+        initialArmor: 'diamond',
+        hasGapple: 3,
+        hasBow: true
+      }));
+    } else if (isSkyWars) {
+      if (mode === 'skywars_4p') {
+        this.teams = ['red', 'blue', 'green', 'yellow'];
+
+        // Player Spawn on Red Island
+        this.player.position.set(0, 0.6, 36);
+        this.player.yaw = Math.PI;
+        this.player.pitch = 0;
+        this.player.armorTier = 'none';
+        this.player.hotbar = [
+          { id: 'sword_wooden', name: '木剑', type: 'weapon', count: 1, damage: 4 },
+          null, null, null, null, null, null, null, null
+        ];
+        this.player.updateHUD();
+        this.player.updateHeldItemVisual();
+
+        // 3 Enemy Bots on their own sky islands, ready to loot their chests
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_skywars', name: '蓝队人机', team: 'blue', difficulty,
+          spawnPos: { x: 0, y: 0.6, z: -36 },
+          spawnChestPos: { x: 0, y: 1, z: -39 },
+          initialState: 'LOOT_CHEST'
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'green_skywars', name: '绿队人机', team: 'green', difficulty,
+          spawnPos: { x: 36, y: 0.6, z: 0 },
+          spawnChestPos: { x: 39, y: 1, z: 0 },
+          initialState: 'LOOT_CHEST'
+        }));
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'yellow_skywars', name: '黄队人机', team: 'yellow', difficulty,
+          spawnPos: { x: -36, y: 0.6, z: 0 },
+          spawnChestPos: { x: -39, y: 1, z: 0 },
+          initialState: 'LOOT_CHEST'
+        }));
+      } else {
+        // SkyWars 1v1
+        this.teams = ['red', 'blue'];
+
+        // Player on Island 1
+        this.player.position.set(0, 0.6, 32);
+        this.player.yaw = Math.PI;
+        this.player.pitch = 0;
+        this.player.armorTier = 'none';
+        this.player.hotbar = [
+          { id: 'sword_wooden', name: '木剑', type: 'weapon', count: 1, damage: 4 },
+          null, null, null, null, null, null, null, null
+        ];
+        this.player.updateHUD();
+        this.player.updateHeldItemVisual();
+
+        // Bot on Island 2
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: 'blue_skywars', name: '蓝队空岛人机', team: 'blue', difficulty,
+          spawnPos: { x: 0, y: 0.6, z: -32 },
+          spawnChestPos: { x: 0, y: 1, z: -35 },
+          initialState: 'LOOT_CHEST'
+        }));
+      }
+    } else if (mode === '4teams') {
       this.teams = ['red', 'blue', 'green', 'yellow'];
 
       if (teamSize === 1) {
@@ -369,13 +483,25 @@ class BedwarsGame {
     }
 
     // Update scoreboard title
+    const sbTitleEl = document.getElementById('scoreboard-title');
     const modeTitleEl = document.getElementById('sb-mode-title');
+    if (sbTitleEl) {
+      if (isPvp) sbTitleEl.innerText = '1V1 DUEL';
+      else if (isSkyWars) sbTitleEl.innerText = 'SKY WARS';
+      else sbTitleEl.innerText = 'BED WARS';
+    }
     if (modeTitleEl) {
-      const modeName = mode === '4teams' ?
-        (teamSize === 2 ? '四队双人 2v2v2v2' : '四队单挑 1v1v1v1') :
-        (teamSize === 2 ? '双人配合 2v2' : '经典单挑 1v1');
-      const mapName = (this.mapThemes[this.currentMap] && this.mapThemes[this.currentMap].name) || '布吉浮岛';
-      modeTitleEl.innerText = `${mapName} · ${modeName}`;
+      if (isPvp) {
+        modeTitleEl.innerText = '决斗角斗场 · 纯粹 PVP';
+      } else if (isSkyWars) {
+        modeTitleEl.innerText = mode === 'skywars_4p' ? '空岛战争 4人混战' : '空岛战争 1v1';
+      } else {
+        const modeName = mode === '4teams' ?
+          (teamSize === 2 ? '四队双人 2v2v2v2' : '四队单挑 1v1v1v1') :
+          (teamSize === 2 ? '双人配合 2v2' : '经典单挑 1v1');
+        const mapName = (this.mapThemes[this.currentMap] && this.mapThemes[this.currentMap].name) || '布吉浮岛';
+        modeTitleEl.innerText = `${mapName} · ${modeName}`;
+      }
     }
 
     this.updateScoreboard();
@@ -528,8 +654,16 @@ class BedwarsGame {
       this.lastTime = performance.now();
       lockPointer();
 
-      this.addChatMessage('§a[起床战争] 游戏正式开始！');
-      this.addChatMessage('§e保护红队的床，破坏敌方的床，将所有敌人淘汰出局！');
+      if (this.currentMode === 'pvp_1v1') {
+        this.addChatMessage('§6[1v1 纯粹决斗] 比赛正式开始！');
+        this.addChatMessage('§e满配钻石神装已发放！运用身法与跳劈击败对手！');
+      } else if (this.currentMode && this.currentMode.startsWith('skywars')) {
+        this.addChatMessage('§b[空岛战争] 比赛正式开始！');
+        this.addChatMessage('§e快速开启空岛战备箱搜刮装备，搭桥抢占中岛神装！');
+      } else {
+        this.addChatMessage('§a[起床战争] 游戏正式开始！');
+        this.addChatMessage('§e保护红队的床，破坏敌方的床，将所有敌人淘汰出局！');
+      }
     };
 
     this.startGameDirect = startGame;
