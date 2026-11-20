@@ -353,12 +353,14 @@ class Player {
     this._onMouseDown = e => {
       if (this.isDead) return;
       if (window.shopManager && window.shopManager.isOpen) return;
+      if (this.chestIsOpen || this.backpackIsOpen) return;
+      if (e.target.closest('#chest-modal') || e.target.closest('#backpack-modal') || e.target.closest('#shop-modal') || e.target.closest('#team-modal') || e.target.closest('#start-screen') || e.target.closest('#gameover-modal')) return;
 
       const canvas = document.getElementById('render-canvas');
       const isTouchActive = !!(window.game && window.game.touchControls && window.game.touchControls.enabled);
       if (document.pointerLockElement !== canvas && !isTouchActive) {
         // Any click on game area (except modals) attempts to lock pointer immediately
-        if (!e.target.closest('#shop-modal') && !e.target.closest('#team-modal') && !e.target.closest('#start-screen') && !e.target.closest('#gameover-modal')) {
+        if (!e.target.closest('#chest-modal') && !e.target.closest('#backpack-modal') && !e.target.closest('#shop-modal') && !e.target.closest('#team-modal') && !e.target.closest('#start-screen') && !e.target.closest('#gameover-modal')) {
           try {
             if (canvas) {
               const p = canvas.requestPointerLock();
@@ -2179,20 +2181,29 @@ class Player {
   // SkyWars Chest Interaction & Loot Methods
   // =========================================================
   initChestUI() {
-    const closeBtn = document.getElementById('chest-close-btn');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => this.closeChest());
-    }
-    const takeAllBtn = document.getElementById('chest-take-all-btn');
-    if (takeAllBtn) {
-      takeAllBtn.addEventListener('click', () => this.takeAllChestItems());
-    }
     const modal = document.getElementById('chest-modal');
     if (modal) {
+      modal.addEventListener('mousedown', e => e.stopPropagation());
+      modal.addEventListener('mouseup', e => e.stopPropagation());
       modal.addEventListener('click', e => {
+        e.stopPropagation();
         if (e.target === modal) {
           this.closeChest();
         }
+      });
+    }
+    const closeBtn = document.getElementById('chest-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeChest();
+      });
+    }
+    const takeAllBtn = document.getElementById('chest-take-all-btn');
+    if (takeAllBtn) {
+      takeAllBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.takeAllChestItems();
       });
     }
   }
@@ -2207,6 +2218,15 @@ class Player {
     }
     this.activeChest = chest;
     this.chestIsOpen = true;
+    this.stopMining();
+    this.isRightMouseDown = false;
+    this.isMouseDown = false;
+
+    // Ensure resume overlay is hidden so mouse cursor is clear and uninhibited
+    const resumeOverlay = document.getElementById('resume-overlay');
+    if (resumeOverlay) {
+      resumeOverlay.style.display = 'none';
+    }
 
     if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
       window.soundManager.playChestOpen();
@@ -2233,12 +2253,23 @@ class Player {
 
   closeChest() {
     this.chestIsOpen = false;
+    this.justClosedChest = true;
+    setTimeout(() => { this.justClosedChest = false; }, 800);
     this.activeChest = null;
     const modal = document.getElementById('chest-modal');
     if (modal) modal.style.display = 'none';
 
     if (window.soundManager && typeof window.soundManager.playChestClose === 'function') {
       window.soundManager.playChestClose();
+    }
+
+    const canvas = document.getElementById('render-canvas');
+    const isTouchActive = !!(window.game && window.game.touchControls && window.game.touchControls.enabled);
+    if (canvas && canvas.requestPointerLock && window.game && window.game.isGameRunning && !isTouchActive) {
+      try {
+        const p = canvas.requestPointerLock();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch (err) {}
     }
   }
 
@@ -2324,6 +2355,8 @@ class Player {
       const item = items[i];
       const slotDiv = document.createElement('div');
       slotDiv.className = 'mc-slot';
+      slotDiv.onmousedown = (e) => e.stopPropagation();
+      slotDiv.onmouseup = (e) => e.stopPropagation();
       if (item) {
         const iconUrl = TextureGenerator.getItemIcon(item.id || item.type);
         slotDiv.innerHTML = `
@@ -2345,6 +2378,8 @@ class Player {
         const item = this.hotbar[i];
         const slotDiv = document.createElement('div');
         slotDiv.className = `mc-slot ${i === this.selectedSlot ? 'active' : ''}`;
+        slotDiv.onmousedown = (e) => e.stopPropagation();
+        slotDiv.onmouseup = (e) => e.stopPropagation();
         if (item) {
           const iconUrl = TextureGenerator.getItemIcon(item.id || item.type);
           slotDiv.innerHTML = `
@@ -2364,27 +2399,42 @@ class Player {
   initBackpackUI() {
     const bpBtn = document.getElementById('hud-backpack-btn');
     if (bpBtn) {
-      bpBtn.addEventListener('click', () => this.toggleBackpack());
+      bpBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.toggleBackpack();
+      });
     }
 
     const closeBtn = document.getElementById('backpack-close-btn');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => this.closeBackpack());
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeBackpack();
+      });
     }
 
     const sortBtn = document.getElementById('bp-btn-sort');
     if (sortBtn) {
-      sortBtn.addEventListener('click', () => this.sortInventory());
+      sortBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.sortInventory();
+      });
     }
 
     const dropBtn = document.getElementById('bp-btn-drop');
     if (dropBtn) {
-      dropBtn.addEventListener('click', () => this.dropSelectedItem());
+      dropBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.dropSelectedItem();
+      });
     }
 
     const modal = document.getElementById('backpack-modal');
     if (modal) {
+      modal.addEventListener('mousedown', e => e.stopPropagation());
+      modal.addEventListener('mouseup', e => e.stopPropagation());
       modal.addEventListener('click', e => {
+        e.stopPropagation();
         if (e.target === modal) {
           this.closeBackpack();
         }
@@ -2399,11 +2449,21 @@ class Player {
 
     this.backpackIsOpen = true;
     this.selectedBackpackSlot = null;
+    this.stopMining();
+    this.isRightMouseDown = false;
+    this.isMouseDown = false;
+
+    const resumeOverlay = document.getElementById('resume-overlay');
+    if (resumeOverlay) {
+      resumeOverlay.style.display = 'none';
+    }
 
     const modal = document.getElementById('backpack-modal');
     if (modal) modal.style.display = 'flex';
 
-    if (document.exitPointerLock) document.exitPointerLock();
+    if (document.exitPointerLock) {
+      try { document.exitPointerLock(); } catch (err) {}
+    }
     if (window.soundManager && typeof window.soundManager.playInventoryOpen === 'function') {
       window.soundManager.playInventoryOpen();
     }
@@ -2413,6 +2473,8 @@ class Player {
 
   closeBackpack() {
     this.backpackIsOpen = false;
+    this.justClosedBackpack = true;
+    setTimeout(() => { this.justClosedBackpack = false; }, 800);
     this.selectedBackpackSlot = null;
 
     const modal = document.getElementById('backpack-modal');

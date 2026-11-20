@@ -974,19 +974,21 @@ class VoxelWorld {
     // 4.1 Floors and Ceilings
     for (let x = bMinX; x <= bMaxX; x++) {
       for (let z = bMinZ; z <= bMaxZ; z++) {
-        // Leave staircase cutout area open: X from 15 to 17, Z from -3 to 3
-        const isStairWell = (x >= 15 && x <= 17 && z >= -3 && z <= 3);
+        // Cutout for South stairwell (1F->2F stair and 3F->Rooftop stair): X: 15 to 17, Z: -7 to -3
+        const isSouthStairHole = (x >= 15 && x <= 17 && z >= -7 && z <= -3);
+        // Cutout for North stairwell (2F->3F stair): X: 15 to 17, Z: 2 to 6
+        const isNorthStairHole = (x >= 15 && x <= 17 && z >= 2 && z <= 6);
 
-        // 2F Floor at y = 5
-        if (!isStairWell) {
+        // 2F Floor at y = 5: leave South stairwell open for 1F->2F stair
+        if (!isSouthStairHole) {
           this.setBlock(x, 5, z, 'STONE_BRICK', false);
         }
-        // 3F Floor at y = 10
-        if (!isStairWell) {
+        // 3F Floor at y = 10: leave North stairwell open for 2F->3F stair
+        if (!isNorthStairHole) {
           this.setBlock(x, 10, z, 'STONE_BRICK', false);
         }
-        // Rooftop Floor at y = 15
-        if (!isStairWell) {
+        // Rooftop Floor at y = 15: leave South stairwell open for 3F->Rooftop stair
+        if (!isSouthStairHole) {
           this.setBlock(x, 15, z, 'STONE_BRICK', false);
         }
       }
@@ -1101,29 +1103,29 @@ class VoxelWorld {
     }
 
     // 4.5 Smooth Walkable Staircases Connecting 1F -> 2F -> 3F -> Rooftop
-    // 1F to 2F Stair: X = 15 to 17, climbing from Z = -2 to Z = 2
+    // 1F to 2F Stair (South Wing): X = 15 to 17, climbing from Z = -7 to Z = -3
     for (let x = 15; x <= 17; x++) {
-      this.setBlock(x, 1, -2, 'STONE_BRICK', false);
-      this.setBlock(x, 2, -1, 'STONE_BRICK', false);
-      this.setBlock(x, 3, 0, 'STONE_BRICK', false);
-      this.setBlock(x, 4, 1, 'STONE_BRICK', false);
-      this.setBlock(x, 5, 2, 'STONE_BRICK', false);
+      this.setBlock(x, 1, -7, 'STONE_BRICK', false);
+      this.setBlock(x, 2, -6, 'STONE_BRICK', false);
+      this.setBlock(x, 3, -5, 'STONE_BRICK', false);
+      this.setBlock(x, 4, -4, 'STONE_BRICK', false);
+      this.setBlock(x, 5, -3, 'STONE_BRICK', false);
     }
-    // 2F to 3F Stair: X = 15 to 17, climbing from Z = 2 down to Z = -2
+    // 2F to 3F Stair (North Wing - completely separate): X = 15 to 17, climbing from Z = 2 to Z = 6
     for (let x = 15; x <= 17; x++) {
       this.setBlock(x, 6, 2, 'STONE_BRICK', false);
-      this.setBlock(x, 7, 1, 'STONE_BRICK', false);
-      this.setBlock(x, 8, 0, 'STONE_BRICK', false);
-      this.setBlock(x, 9, -1, 'STONE_BRICK', false);
-      this.setBlock(x, 10, -2, 'STONE_BRICK', false);
+      this.setBlock(x, 7, 3, 'STONE_BRICK', false);
+      this.setBlock(x, 8, 4, 'STONE_BRICK', false);
+      this.setBlock(x, 9, 5, 'STONE_BRICK', false);
+      this.setBlock(x, 10, 6, 'STONE_BRICK', false);
     }
-    // 3F to Rooftop Stair: X = 15 to 17, climbing from Z = -2 to Z = 2
+    // 3F to Rooftop Stair (South Wing): X = 15 to 17, climbing from Z = -7 to Z = -3
     for (let x = 15; x <= 17; x++) {
-      this.setBlock(x, 11, -2, 'STONE_BRICK', false);
-      this.setBlock(x, 12, -1, 'STONE_BRICK', false);
-      this.setBlock(x, 13, 0, 'STONE_BRICK', false);
-      this.setBlock(x, 14, 1, 'STONE_BRICK', false);
-      this.setBlock(x, 15, 2, 'STONE_BRICK', false);
+      this.setBlock(x, 11, -7, 'STONE_BRICK', false);
+      this.setBlock(x, 12, -6, 'STONE_BRICK', false);
+      this.setBlock(x, 13, -5, 'STONE_BRICK', false);
+      this.setBlock(x, 14, -4, 'STONE_BRICK', false);
+      this.setBlock(x, 15, -3, 'STONE_BRICK', false);
     }
 
     // 4.6 Rooftop (天台: y = 15, Parapet Wall, Penthouse, Water Tank, HVAC)
@@ -1141,11 +1143,12 @@ class VoxelWorld {
       this.setBlock(x, 17, bMaxZ, 'IRON_BLOCK', false);
     }
 
-    // Staircase Penthouse Exit Shelter (X: 14 to 18, Z: -3 to 3, y: 16 to 18, roof y = 19)
+    // Staircase Penthouse Exit Shelter (X: 14 to 18, Z: -8 to 0, y: 16 to 18, roof y = 19)
     for (let x = 14; x <= 18; x++) {
-      for (let z = -3; z <= 3; z++) {
-        const isWall = (x === 14 || x === 18 || z === -3 || z === 3);
-        const isDoor = (x === 14 && z === 0);
+      for (let z = -8; z <= 0; z++) {
+        const isWall = (x === 14 || x === 18 || z === -8 || z === 0);
+        // Wide 3-block door at Z = 0 (X = 15, 16, 17)
+        const isDoor = (z === 0 && x >= 15 && x <= 17);
         if (isWall && !isDoor) {
           for (let y = 16; y <= 18; y++) {
             this.setBlock(x, y, z, 'STONE_BRICK', false);
@@ -1154,7 +1157,7 @@ class VoxelWorld {
         this.setBlock(x, 19, z, 'QUARTZ', false);
       }
     }
-    this.setBlock(16, 18, 0, 'GLOWSTONE', false);
+    this.setBlock(16, 18, -4, 'GLOWSTONE', false);
 
     // Water Tower (X = 30, Z = 16, y: 16 to 19)
     for (let x = 28; x <= 32; x++) {

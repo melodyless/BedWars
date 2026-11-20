@@ -1708,6 +1708,7 @@ canvas#render-canvas {
   justify-content: center;
   z-index: 99998;
   font-family: 'Minecraft', 'Segoe UI', Tahoma, sans-serif;
+  cursor: default !important;
 }
 
 .backpack-modal-dialog {
@@ -1722,6 +1723,17 @@ canvas#render-canvas {
   padding: 16px 20px;
   user-select: none;
   box-sizing: border-box;
+  cursor: default !important;
+}
+
+.backpack-modal-dialog * {
+  cursor: default;
+}
+
+.backpack-modal-dialog button,
+.backpack-modal-dialog .bp-action-btn,
+.backpack-modal-dialog .mc-slot {
+  cursor: pointer !important;
 }
 
 .backpack-modal-header {
@@ -1979,6 +1991,7 @@ canvas#render-canvas {
   justify-content: center;
   z-index: 99998;
   font-family: 'Minecraft', 'Segoe UI', Tahoma, sans-serif;
+  cursor: default !important;
 }
 
 .chest-modal-dialog {
@@ -1993,6 +2006,18 @@ canvas#render-canvas {
   padding: 16px 20px;
   user-select: none;
   box-sizing: border-box;
+  cursor: default !important;
+}
+
+.chest-modal-dialog * {
+  cursor: default;
+}
+
+.chest-modal-close-btn,
+.chest-take-all-btn,
+.chest-modal-dialog button,
+.chest-modal-dialog .mc-slot {
+  cursor: pointer !important;
 }
 
 .chest-modal-header {

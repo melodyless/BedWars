@@ -827,8 +827,10 @@ class BedwarsGame {
       const isShopOpen = this.shopManager && this.shopManager.isOpen;
       const isTeamOpen = window.TeammateManager && window.TeammateManager.isOpen;
       const isSkinOpen = window.SkinManager && window.SkinManager.isOpen;
-      if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen && document.pointerLockElement !== this.canvas) {
-        if (!e.target.closest('#shop-modal') && !e.target.closest('#team-modal') && !e.target.closest('#start-screen') && !e.target.closest('#gameover-modal')) {
+      const isChestOpen = window.player && (window.player.chestIsOpen || window.player.justClosedChest);
+      const isBackpackOpen = window.player && (window.player.backpackIsOpen || window.player.justClosedBackpack);
+      if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen && !isChestOpen && !isBackpackOpen && document.pointerLockElement !== this.canvas) {
+        if (!e.target.closest('#shop-modal') && !e.target.closest('#team-modal') && !e.target.closest('#start-screen') && !e.target.closest('#gameover-modal') && !e.target.closest('#chest-modal') && !e.target.closest('#backpack-modal')) {
           lockPointer();
         }
       }
@@ -846,8 +848,10 @@ class BedwarsGame {
         const isShopOpen = this.shopManager && (this.shopManager.isOpen || this.shopManager.justClosed);
         const isTeamOpen = window.TeammateManager && (window.TeammateManager.isOpen || window.TeammateManager.justClosed);
         const isSkinOpen = window.SkinManager && window.SkinManager.isOpen;
+        const isChestOpen = window.player && (window.player.chestIsOpen || window.player.justClosedChest);
+        const isBackpackOpen = window.player && (window.player.backpackIsOpen || window.player.justClosedBackpack);
         const isTouchActive = this.touchControls && this.touchControls.enabled;
-        if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen && !isTouchActive) {
+        if (this.isGameRunning && !isShopOpen && !isTeamOpen && !isSkinOpen && !isChestOpen && !isBackpackOpen && !isTouchActive) {
           if (resumeOverlay) resumeOverlay.style.display = 'flex';
         }
       } else {
