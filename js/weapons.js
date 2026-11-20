@@ -227,7 +227,7 @@
       // Orientation and offset adjustments
       if (options.isBot) {
         sword.scale.set(0.85, 0.85, 0.85);
-        sword.position.set(0, -0.22, 0.22);
+        sword.position.set(0, -0.58, 0.20);
         sword.rotation.x = -Math.PI / 3;
       } else {
         // First-person held weapon default orientation
@@ -399,7 +399,7 @@
 
       if (options.isBot) {
         bow.scale.set(0.85, 0.85, 0.85);
-        bow.position.set(-0.05, -0.15, 0.2);
+        bow.position.set(-0.05, -0.52, 0.2);
         bow.rotation.set(-Math.PI / 4, Math.PI / 6, 0);
       } else {
         bow.rotation.set(-0.1, -Math.PI / 6, -Math.PI / 12);

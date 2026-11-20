@@ -208,22 +208,24 @@ class Bot {
     this.beltMesh.position.set(0, -0.32, 0);
     this.torsoMesh.add(this.beltMesh);
 
-    // Arms
+    // Arms (Rigged to rotate cleanly around Shoulder Joints)
     const armGeo = new THREE.BoxGeometry(0.24, 0.72, 0.24);
+    armGeo.translate(0, -0.36, 0); // Pivot point at shoulder top!
+
     this.leftArm = new THREE.Mesh(armGeo, this.armorMat);
-    this.leftArm.position.set(-0.42, 0.95, 0);
+    this.leftArm.position.set(-0.42, 1.28, 0);
     this.group.add(this.leftArm);
 
     this.shoulderLeft = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.28), this.teamTrimMat);
-    this.shoulderLeft.position.set(0, 0.31, 0);
+    this.shoulderLeft.position.set(0, -0.05, 0);
     this.leftArm.add(this.shoulderLeft);
 
     this.rightArm = new THREE.Mesh(armGeo, this.armorMat);
-    this.rightArm.position.set(0.42, 0.95, 0);
+    this.rightArm.position.set(0.42, 1.28, 0);
     this.group.add(this.rightArm);
 
     this.shoulderRight = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.28), this.teamTrimMat);
-    this.shoulderRight.position.set(0, 0.31, 0);
+    this.shoulderRight.position.set(0, -0.05, 0);
     this.rightArm.add(this.shoulderRight);
 
     // Sword in right hand (Starts with Wooden Sword)
@@ -233,20 +235,23 @@ class Bot {
       const swordGeo = new THREE.BoxGeometry(0.06, 0.5, 0.03);
       this.swordMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
       this.swordMesh = new THREE.Mesh(swordGeo, this.swordMat);
-      this.swordMesh.position.set(0, -0.25, 0.2);
+    }
+    if (this.swordMesh) {
+      this.swordMesh.position.set(0, -0.58, 0.20);
       this.swordMesh.rotation.x = -Math.PI / 3;
     }
     this.rightArm.add(this.swordMesh);
 
-    // Legs
+    // Legs (Rigged to rotate cleanly around Hip Joints)
     const legGeo = new THREE.BoxGeometry(0.26, 0.72, 0.26);
+    legGeo.translate(0, -0.36, 0); // Pivot point at hip top!
     this.legMat = new THREE.MeshLambertMaterial({ color: 0x153570 });
     this.leftLeg = new THREE.Mesh(legGeo, this.legMat);
-    this.leftLeg.position.set(-0.16, 0.36, 0);
+    this.leftLeg.position.set(-0.16, 0.72, 0);
     this.group.add(this.leftLeg);
 
     this.rightLeg = new THREE.Mesh(legGeo, this.legMat);
-    this.rightLeg.position.set(0.16, 0.36, 0);
+    this.rightLeg.position.set(0.16, 0.72, 0);
     this.group.add(this.rightLeg);
 
     // Apply custom or preset skin from SkinManager
@@ -486,7 +491,9 @@ class Bot {
         const swordGeo = new THREE.BoxGeometry(0.06, 0.5, 0.03);
         this.swordMat = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
         this.swordMesh = new THREE.Mesh(swordGeo, this.swordMat);
-        this.swordMesh.position.set(0, -0.25, 0.2);
+      }
+      if (this.swordMesh) {
+        this.swordMesh.position.set(0, -0.58, 0.20);
         this.swordMesh.rotation.x = -Math.PI / 3;
       }
       this.rightArm.add(this.swordMesh);
@@ -2690,10 +2697,31 @@ class Bot {
     }
   }
 
-  applyPhysics(dt) {
-    const halfW = 0.28;
+  hasGroundBelow(posX, posZ) {
+    const isSchoolBR = (window.game && window.game.currentMode === 'school_br');
+    const isPVP = (window.game && window.game.currentMode === 'pvp_1v1');
+    if (isSchoolBR || isPVP) return true; // Full arena maps without floating islands/void
 
-    // 1. Gravity & Floor Landing
+    const footBx = Math.floor(posX + 0.5);
+    const footBz = Math.floor(posZ + 0.5);
+    const curFootBy = Math.floor(this.position.y - 0.5 + 0.5);
+
+    for (let dy = 0; dy <= 3; dy++) {
+      if (this.world.getBlock(footBx, curFootBy - dy, footBz)) {
+        return true;
+      }
+    }
+    if (this.state === 'BRIDGE' || this.state === 'BRIDGE_MID') {
+      return true;
+    }
+    return false;
+  }
+
+  applyPhysics(dt) {
+    const halfW = 0.26;
+    const height = this.height || 1.8;
+
+    // 1. Gravity & Floor / Ceiling Collision
     const prevY = this.position.y;
     this.velocity.y -= this.gravity * dt;
     this.position.y += this.velocity.y * dt;
@@ -2713,7 +2741,7 @@ class Bot {
           for (let bz = minBz; bz <= maxBz; bz++) {
             const block = this.world.getBlock(bx, by, bz);
             if (block) {
-              const topY = block.y + 0.5;
+              const topY = (block.type && block.type.startsWith('BED_')) ? (block.y + 0.06) : (block.y + 0.5);
               if (this.position.y <= topY && prevY >= topY - 0.35) {
                 this.position.y = topY;
                 this.velocity.y = 0;
@@ -2726,84 +2754,170 @@ class Bot {
         }
         if (this.onGround) break;
       }
+    } else {
+      // Jumping up: check ceiling collision to prevent jumping through ceilings/floors
+      const headY = this.position.y + height;
+      const prevHeadY = prevY + height;
+      const scanStartY = Math.floor(prevHeadY - 0.5);
+      const scanEndY = Math.floor(headY + 0.5);
+
+      for (let by = scanStartY; by <= scanEndY; by++) {
+        for (let bx = minBx; bx <= maxBx; bx++) {
+          for (let bz = minBz; bz <= maxBz; bz++) {
+            const block = this.world.getBlock(bx, by, bz);
+            if (block) {
+              const bottomY = block.y - 0.5;
+              if (headY >= bottomY && prevHeadY <= bottomY + 0.8) {
+                this.position.y = bottomY - height;
+                this.velocity.y = 0;
+                break;
+              }
+            }
+          }
+          if (this.velocity.y === 0) break;
+        }
+        if (this.velocity.y === 0) break;
+      }
     }
 
-    // 2. Horizontal Movement WITH VOID EDGE SAFEGUARD
+    // 2. Horizontal Movement (Wall Collision & Auto Step-Up)
+    // Applies at ALL TIMES (Grounded OR Airborne), strictly preventing wall clipping!
+    const bodyMinBy = Math.floor(this.position.y + 0.15 + 0.5);
+    const bodyMaxBy = Math.floor(this.position.y + height - 0.1 + 0.5);
+
+    // --- X Axis ---
     const dx = this.velocity.x * dt;
-    const dz = this.velocity.z * dt;
+    if (Math.abs(dx) > 0.0001) {
+      let canMoveX = true;
+      if (this.onGround && !this.hasGroundBelow(this.position.x + dx, this.position.z)) {
+        canMoveX = false;
+        this.velocity.x = 0;
+      }
 
-    if (Math.abs(dx) > 0.0001 || Math.abs(dz) > 0.0001) {
-      const nextX = this.position.x + dx;
-      const nextZ = this.position.z + dz;
+      if (canMoveX) {
+        const targetX = this.position.x + dx;
+        const targetMinBx = Math.floor(targetX - halfW + 0.5);
+        const targetMaxBx = Math.floor(targetX + halfW + 0.5);
+        const curMinBz = Math.floor(this.position.z - halfW + 0.5);
+        const curMaxBz = Math.floor(this.position.z + halfW + 0.5);
 
-      // When grounded: Sneak edge guard prevents falling off into the void
-      if (this.onGround) {
-        const curFootBx = Math.floor(this.position.x + 0.5);
-        const curFootBz = Math.floor(this.position.z + 0.5);
-        const groundBy = Math.floor(this.position.y - 0.5 + 0.5);
-
-        const nextFootBx = Math.floor(nextX + 0.5);
-        const nextFootBz = Math.floor(nextZ + 0.5);
-
-        // Check X direction floor & wall collision
-        // Allow stepping down 1-2 blocks onto lower floor without getting stuck
-        const hasFloorX = this.world.getBlock(nextFootBx, groundBy, curFootBz) ||
-                          this.world.getBlock(nextFootBx, groundBy - 1, curFootBz) ||
-                          this.world.getBlock(nextFootBx, groundBy - 2, curFootBz);
-        const wallX = this.world.getBlock(nextFootBx, groundBy + 1, curFootBz);
-
-        if (wallX) {
-          const clearAboveX = !this.world.getBlock(nextFootBx, groundBy + 2, curFootBz);
-          if (clearAboveX) {
-            // Auto step-up 1 block smoothly
-            this.position.y = wallX.y + 0.5;
-            this.position.x = nextX;
-            this.onGround = true;
-          } else {
-            this.velocity.x = 0;
-            if (this.onGround && this.jumpCooldown <= 0) {
-              this.velocity.y = this.jumpForce;
-              this.jumpCooldown = 0.6;
+        let hitWall = false;
+        for (let bx = targetMinBx; bx <= targetMaxBx; bx++) {
+          for (let by = bodyMinBy; by <= bodyMaxBy; by++) {
+            for (let bz = curMinBz; bz <= curMaxBz; bz++) {
+              if (this.world.getBlock(bx, by, bz)) {
+                hitWall = true;
+                break;
+              }
             }
+            if (hitWall) break;
           }
-        } else if (hasFloorX) {
-          this.position.x = nextX;
+          if (hitWall) break;
+        }
+
+        // Auto Step-Up: If grounded and hitting an obstacle (e.g. 1-block stair), step up if space above is clear
+        if (hitWall && this.onGround) {
+          const stepUpY = this.position.y + 1.0;
+          const stepMinBy = Math.floor(stepUpY + 0.15 + 0.5);
+          const stepMaxBy = Math.floor(stepUpY + height - 0.1 + 0.5);
+          let clearAbove = true;
+          for (let bx = targetMinBx; bx <= targetMaxBx; bx++) {
+            for (let by = stepMinBy; by <= stepMaxBy; by++) {
+              for (let bz = curMinBz; bz <= curMaxBz; bz++) {
+                if (this.world.getBlock(bx, by, bz)) {
+                  clearAbove = false;
+                  break;
+                }
+              }
+              if (!clearAbove) break;
+            }
+            if (!clearAbove) break;
+          }
+          if (clearAbove) {
+            this.position.y += 1.0;
+            this.position.x = targetX;
+            this.onGround = true;
+            hitWall = false;
+          }
+        }
+
+        if (!hitWall) {
+          this.position.x = targetX;
         } else {
-          // True void edge: smoothly halt at edge without snap-teleporting!
           this.velocity.x = 0;
-        }
-
-        // Check Z direction floor & wall collision
-        // Allow stepping down 1-2 blocks onto lower floor without getting stuck
-        const hasFloorZ = this.world.getBlock(curFootBx, groundBy, nextFootBz) ||
-                          this.world.getBlock(curFootBx, groundBy - 1, nextFootBz) ||
-                          this.world.getBlock(curFootBx, groundBy - 2, nextFootBz);
-        const wallZ = this.world.getBlock(curFootBx, groundBy + 1, nextFootBz);
-
-        if (wallZ) {
-          const clearAboveZ = !this.world.getBlock(curFootBx, groundBy + 2, nextFootBz);
-          if (clearAboveZ) {
-            // Auto step-up 1 block smoothly
-            this.position.y = wallZ.y + 0.5;
-            this.position.z = nextZ;
-            this.onGround = true;
-          } else {
-            this.velocity.z = 0;
-            if (this.onGround && this.jumpCooldown <= 0) {
-              this.velocity.y = this.jumpForce;
-              this.jumpCooldown = 0.6;
-            }
+          if (this.onGround && this.jumpCooldown <= 0) {
+            this.velocity.y = this.jumpForce;
+            this.jumpCooldown = 0.6;
           }
-        } else if (hasFloorZ) {
-          this.position.z = nextZ;
-        } else {
-          // True void edge: smoothly halt at edge without snap-teleporting!
-          this.velocity.z = 0;
         }
-      } else {
-        // Airborne (e.g. knocked back or jump crit)
-        this.position.x = nextX;
-        this.position.z = nextZ;
+      }
+    }
+
+    // --- Z Axis ---
+    const dz = this.velocity.z * dt;
+    if (Math.abs(dz) > 0.0001) {
+      let canMoveZ = true;
+      if (this.onGround && !this.hasGroundBelow(this.position.x, this.position.z + dz)) {
+        canMoveZ = false;
+        this.velocity.z = 0;
+      }
+
+      if (canMoveZ) {
+        const targetZ = this.position.z + dz;
+        const curMinBx = Math.floor(this.position.x - halfW + 0.5);
+        const curMaxBx = Math.floor(this.position.x + halfW + 0.5);
+        const targetMinBz = Math.floor(targetZ - halfW + 0.5);
+        const targetMaxBz = Math.floor(targetZ + halfW + 0.5);
+
+        let hitWall = false;
+        for (let bx = curMinBx; bx <= curMaxBx; bx++) {
+          for (let by = bodyMinBy; by <= bodyMaxBy; by++) {
+            for (let bz = targetMinBz; bz <= targetMaxBz; bz++) {
+              if (this.world.getBlock(bx, by, bz)) {
+                hitWall = true;
+                break;
+              }
+            }
+            if (hitWall) break;
+          }
+          if (hitWall) break;
+        }
+
+        // Auto Step-Up: If grounded and hitting an obstacle (e.g. 1-block stair), step up if space above is clear
+        if (hitWall && this.onGround) {
+          const stepUpY = this.position.y + 1.0;
+          const stepMinBy = Math.floor(stepUpY + 0.15 + 0.5);
+          const stepMaxBy = Math.floor(stepUpY + height - 0.1 + 0.5);
+          let clearAbove = true;
+          for (let bz = targetMinBz; bz <= targetMaxBz; bz++) {
+            for (let by = stepMinBy; by <= stepMaxBy; by++) {
+              for (let bx = curMinBx; bx <= curMaxBx; bx++) {
+                if (this.world.getBlock(bx, by, bz)) {
+                  clearAbove = false;
+                  break;
+                }
+              }
+              if (!clearAbove) break;
+            }
+            if (!clearAbove) break;
+          }
+          if (clearAbove) {
+            this.position.y += 1.0;
+            this.position.z = targetZ;
+            this.onGround = true;
+            hitWall = false;
+          }
+        }
+
+        if (!hitWall) {
+          this.position.z = targetZ;
+        } else {
+          this.velocity.z = 0;
+          if (this.onGround && this.jumpCooldown <= 0) {
+            this.velocity.y = this.jumpForce;
+            this.jumpCooldown = 0.6;
+          }
+        }
       }
     }
   }
