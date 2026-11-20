@@ -46,7 +46,7 @@
       }
     });
   </script>
-  <link rel="stylesheet" href="css/style.css?v=20261113_02">
+  <link rel="stylesheet" href="css/style.css?v=20261120_01">
 </head>
 <body>
   <div id="game-container">
@@ -385,6 +385,10 @@
               <span class="map-name">🌌 虚空末地</span>
               <span class="map-desc">末地星陨 · 紫珀神殿</span>
             </button>
+            <button class="map-btn" data-map="school">
+              <span class="map-name">🏫 阳光校园</span>
+              <span class="map-desc">大操场 · 3层教学楼</span>
+            </button>
           </div>
 
           <div class="mode-select-title" style="margin-top: 10px;">选择游戏玩法与对战模式：</div>
@@ -405,13 +409,9 @@
               <span class="mode-name">🛏️ 起床4队双人 8人史诗</span>
               <span class="mode-desc">2v2v2v2 · 8人军团混战</span>
             </button>
-            <button class="mode-btn" data-mode="skywars_1v1" data-teamsize="1">
-              <span class="mode-name">🏝️ 空岛战争 1v1</span>
-              <span class="mode-desc">随机物资 · 护床抢中</span>
-            </button>
-            <button class="mode-btn" data-mode="skywars_4p" data-teamsize="1">
-              <span class="mode-name">🏝️ 空岛战争 4人混战</span>
-              <span class="mode-desc">4岛床战 · 中岛神箱</span>
+            <button class="mode-btn" data-mode="school_br" data-teamsize="1">
+              <span class="mode-name">🐔 校园吃鸡 16人混战</span>
+              <span class="mode-desc">3层教学楼 · 操场搜箱角逐</span>
             </button>
             <button class="mode-btn" data-mode="pvp_1v1" data-teamsize="1">
               <span class="mode-name">⚔️ 纯粹 PVP 决斗</span>
@@ -462,8 +462,9 @@
             • <b>视角控制</b>：在屏幕右半边空白区域任意滑动即可丝滑转动镜头，轻点空白区域也可直接攻击！
           </div>
           <div class="inst-tip" style="color: #fde047; background: rgba(161, 98, 7, 0.25); border-left: 3px solid #eab308;">
-            🏝️ <b>全新【空岛战争】模式</b>：落地第一时间右键或轻点<b>【开箱】</b>搜刮武器、护甲、金苹果与搭桥方块！一键全部拿取并自动穿戴护甲，搭桥抢占中岛豪华钻石神箱！<br>
-            ⚔️ <b>全新【纯粹 PVP 决斗】模式</b>：落地直接发放满配<b>全套钻石神装、附魔金苹果、力量弓箭与迅捷药水</b>！无床无发育，纯拼走位、下落跳劈双倍暴击与战斗身法！
+            🐔 <b>全新【校园吃鸡 16人混战】模式</b>：降落在一所拥有<b>标准跑道大操场与3层教学楼</b>的校园战场！16人各自为战、无床无复活、完全随机不同出生点与个性皮肤！<br>
+            📦 <b>全随机搜箱发育</b>：教学楼讲台、各层教室课桌、操场看台与天台概率散布物资箱，箱内神剑神甲药水完全随机！落地第一时间开箱搜刮、下落跳劈暴击，决出唯一吃鸡幸存者！<br>
+            ⚔️ <b>全新【纯粹 PVP 决斗】模式</b>：落地直接发放满配<b>全套钻石神装、附魔金苹果、力量弓箭与迅捷药水</b>！纯拼走位、下落跳劈双倍暴击与战斗身法！
           </div>
           <div class="inst-tip">★ <b>全新背包系统</b>：按 <b>B / E 键</b>随时展开 36 格背包仓库，支持 Shift 一键转移、自由互换与一键智能整理！</div>
           <div class="inst-tip">★ <b>全新药水系统</b>：村民商店新增<b>迅捷 II、跳跃 V、隐形药水、恢复药水</b>！手持右键即可饮用，隐身可骗过人机索敌，迅捷大幅加速！</div>
@@ -503,18 +504,18 @@
   </script>
 
   <!-- Scripts -->
-  <script src="libs/three.min.js?v=20261113_02"></script>
-  <script src="js/audio.js?v=20261113_02"></script>
-  <script src="js/textures.js?v=20261113_02"></script>
-  <script src="js/skins.js?v=20261113_02"></script>
-  <script src="js/weapons.js?v=20261113_02"></script>
-  <script src="js/world.js?v=20261113_02"></script>
-  <script src="js/generators.js?v=20261113_02"></script>
-  <script src="js/player.js?v=20261113_02"></script>
-  <script src="js/bot.js?v=20261113_02"></script>
-  <script src="js/teammate.js?v=20261113_02"></script>
-  <script src="js/shop.js?v=20261113_02"></script>
-  <script src="js/touch.js?v=20261114_01"></script>
-  <script src="js/game.js?v=20261113_02"></script>
+  <script src="libs/three.min.js?v=20261120_01"></script>
+  <script src="js/audio.js?v=20261120_01"></script>
+  <script src="js/textures.js?v=20261120_01"></script>
+  <script src="js/skins.js?v=20261120_01"></script>
+  <script src="js/weapons.js?v=20261120_01"></script>
+  <script src="js/world.js?v=20261120_01"></script>
+  <script src="js/generators.js?v=20261120_01"></script>
+  <script src="js/player.js?v=20261120_01"></script>
+  <script src="js/bot.js?v=20261120_01"></script>
+  <script src="js/teammate.js?v=20261120_01"></script>
+  <script src="js/shop.js?v=20261120_01"></script>
+  <script src="js/touch.js?v=20261120_01"></script>
+  <script src="js/game.js?v=20261120_01"></script>
 </body>
 </html>

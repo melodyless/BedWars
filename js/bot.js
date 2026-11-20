@@ -319,14 +319,19 @@ class Bot {
       };
       roleTag = ` ${roleNameMap[this.tacticalRole] || '[队友]'}`;
     }
-    const nameLine = `[${this.team.toUpperCase()[0]}] ${this.name}${roleTag} [${swordName}/${armorName}]`;
+    let nameLine = `[${this.team.toUpperCase()[0]}] ${this.name}${roleTag} [${swordName}/${armorName}]`;
+    let nameColor = myTeam.colorStr;
+    if (window.game && window.game.currentMode === 'school_br') {
+      nameLine = `🐔 ${this.name} [${swordName}/${armorName}]`;
+      nameColor = '#ffdd44';
+    }
 
     // High contrast black text outline
     ctx.lineWidth = 4;
     ctx.strokeStyle = '#000000';
     ctx.strokeText(nameLine, 256, 48);
 
-    ctx.fillStyle = myTeam.colorStr;
+    ctx.fillStyle = nameColor;
     ctx.fillText(nameLine, 256, 48);
 
     // Line 2: HP Bar + Large Numeric HP
@@ -999,13 +1004,19 @@ class Bot {
       window.game.addChatMessage(`${myTeam.prefix}${this.name} 被 §f${killer} §r击杀了！`);
     }
 
+    // In School Battle Royale, no beds, instant permanent elimination
+    if (window.game && window.game.currentMode === 'school_br') {
+      window.game.onFinalKill(this.team, this, killer);
+      return;
+    }
+
     // Check if bed of this team is still alive
     const bedAlive = this.world.bedStatus[this.team];
     if (bedAlive) {
       window.game.addChatMessage(`${myTeam.prefix}${this.name} 将在 5 秒后复活！`);
       setTimeout(() => this.respawn(), 5000);
     } else {
-      window.game.onFinalKill(this.team, this);
+      window.game.onFinalKill(this.team, this, killer);
     }
   }
 
@@ -1539,6 +1550,19 @@ class Bot {
 
   // Strategic Decision Maker: Evaluates whether to Gather Diamonds, Rush Emeralds, or Attack Enemy Bed
   chooseNextObjective(fromShop = false) {
+    // School Battle Royale Mode: Loot chests across campus, patrol school, hunt enemies!
+    if (window.game && window.game.currentMode === 'school_br') {
+      const { target, dist } = this.findTarget(window.player, window.bots || []);
+      if (target && dist < 14.0) {
+        this.state = 'COMBAT';
+        this.currentTarget = target;
+      } else {
+        this.state = 'LOOT_CHEST';
+      }
+      this.stateTimer = 0;
+      return;
+    }
+
     // PvP Duel Mode: Always seek and hunt down enemy! Never bridge or gather resources.
     if (window.game && window.game.currentMode === 'pvp_1v1') {
       this.state = 'COMBAT';
@@ -1785,6 +1809,62 @@ class Bot {
 
     switch (this.state) {
       case 'LOOT_CHEST': {
+        if (window.game && window.game.currentMode === 'school_br') {
+          if (!this.targetChest || this.targetChest.opened) {
+            let closestChest = null;
+            let closestDist = 999;
+            for (const [key, c] of this.world.chests.entries()) {
+              if (c.opened) continue;
+              const d = Math.hypot(c.x - this.position.x, c.z - this.position.z);
+              if (d < closestDist) {
+                closestDist = d;
+                closestChest = c;
+              }
+            }
+            this.targetChest = closestChest;
+          }
+
+          if (this.targetChest) {
+            const distToChest = Math.hypot(this.targetChest.x - this.position.x, this.targetChest.z - this.position.z);
+            if (distToChest > 2.0) {
+              this.moveTo(this.targetChest.x, this.targetChest.z, this.speed * 0.95);
+            } else {
+              this.lookAt(this.targetChest.x, this.targetChest.y, this.targetChest.z);
+              if (this.stateTimer > 0.6) {
+                this.targetChest.opened = true;
+                const wTiers = ['stone', 'iron', 'diamond'];
+                const aTiers = ['chain', 'iron', 'diamond'];
+                this.weaponTier = wTiers[Math.floor(Math.random() * wTiers.length)];
+                this.armorTier = aTiers[Math.floor(Math.random() * aTiers.length)];
+                this.goldenApples = Math.min(4, this.goldenApples + 2);
+                this.hasGapple = this.goldenApples;
+                if (Math.random() < 0.6) {
+                  this.hasBow = true;
+                  this.arrowCount = 32;
+                }
+                this.updateEquipmentVisuals();
+                if (window.soundManager && typeof window.soundManager.playChestOpen === 'function') {
+                  window.soundManager.playChestOpen();
+                }
+                this.targetChest = null;
+                this.stateTimer = 0;
+                if (target && dist < 14.0) {
+                  this.state = 'COMBAT';
+                } else {
+                  this.state = 'PATROL_CAMPUS';
+                }
+              }
+            }
+          } else {
+            if (target) {
+              this.state = 'COMBAT';
+            } else {
+              this.state = 'PATROL_CAMPUS';
+            }
+          }
+          break;
+        }
+
         if (!this.spawnChestPos) {
           this.state = 'COMBAT';
           break;
@@ -1813,6 +1893,41 @@ class Bot {
             this.state = 'BRIDGE_MID';
             this.stateTimer = 0;
           }
+        }
+        break;
+      }
+
+      case 'PATROL_CAMPUS': {
+        if (target && dist < 14.0) {
+          this.state = 'COMBAT';
+          this.stateTimer = 0;
+          break;
+        }
+
+        const campusWaypoints = [
+          { x: -23, z: 0 },    // 操场中圈
+          { x: -38, z: 0 },    // 看台
+          { x: -10, z: 15 },   // 跑道
+          { x: 0, z: 0 },      // 喷泉广场
+          { x: 10, z: 0 },     // 1F大厅
+          { x: 26, z: 12 },    // 1F教室
+          { x: 26, z: -12 },   // 1F教室
+          { x: 16, z: 15 },    // 走廊
+          { x: 25, z: -8 }     // 天台
+        ];
+
+        if (this.campusPatrolIndex === undefined || this.stateTimer > 7.0) {
+          this.campusPatrolIndex = Math.floor(Math.random() * campusWaypoints.length);
+          this.stateTimer = 0;
+        }
+
+        const wp = campusWaypoints[this.campusPatrolIndex];
+        const distToWp = Math.hypot(wp.x - this.position.x, wp.z - this.position.z);
+        if (distToWp > 2.5) {
+          this.moveTo(wp.x, wp.z, this.speed * 0.9);
+        } else {
+          this.campusPatrolIndex = Math.floor(Math.random() * campusWaypoints.length);
+          this.stateTimer = 0;
         }
         break;
       }

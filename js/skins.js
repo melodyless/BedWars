@@ -108,8 +108,22 @@
       }
     }
 
+    getRandomSkinConfig() {
+      const presetKeys = ['steve', 'alex', 'zombie', 'skeleton', 'enderman', 'creeper', 'knight', 'cyber', 'demon'];
+      const pKey = presetKeys[Math.floor(Math.random() * presetKeys.length)];
+      return { type: 'preset', id: pKey };
+    }
+
     getBotSkinConfig(botId, team = 'blue') {
       if (this.configs[botId]) {
+        return this.configs[botId];
+      }
+      // If school battle royale bot, randomly assign distinct presets
+      if (botId && (botId.startsWith('bot_br_') || botId.startsWith('bot_school_'))) {
+        const presetKeys = ['steve', 'alex', 'zombie', 'skeleton', 'enderman', 'creeper', 'knight', 'cyber', 'demon'];
+        const hash = botId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+        const pKey = presetKeys[hash % presetKeys.length];
+        this.configs[botId] = { type: 'preset', id: pKey };
         return this.configs[botId];
       }
       // Fallback to default allocation or team preset

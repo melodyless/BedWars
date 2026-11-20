@@ -2218,6 +2218,14 @@ class Player {
 
     const modal = document.getElementById('chest-modal');
     if (modal) {
+      const titleSpan = modal.querySelector('.chest-modal-title span');
+      if (titleSpan) {
+        if (window.game && window.game.currentMode === 'school_br') {
+          titleSpan.innerText = '📦 校园战利品物资箱 (Campus Loot Chest)';
+        } else {
+          titleSpan.innerText = '📦 空岛战利品箱子 (SkyWars Chest)';
+        }
+      }
       modal.style.display = 'flex';
       this.renderChestUI();
     }

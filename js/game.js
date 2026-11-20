@@ -66,6 +66,16 @@ class BedwarsGame {
         ambientInt: 0.60,
         sun: 0xe0c0ff,
         sunInt: 0.80
+      },
+      school: {
+        name: '阳光校园',
+        sky: 0x87ceeb,
+        fog: 0xa0d8ef,
+        fogDensity: 0.0070,
+        ambient: 0xffffff,
+        ambientInt: 0.75,
+        sun: 0xfffaed,
+        sunInt: 0.90
       }
     };
 
@@ -164,7 +174,9 @@ class BedwarsGame {
     const startBtn = document.getElementById('start-btn');
     if (!startBtn) return;
     let modeName = '经典单挑 1v1';
-    if (this.selectedMode === 'pvp_1v1') {
+    if (this.selectedMode === 'school_br') {
+      modeName = '🐔 校园吃鸡 16人混战';
+    } else if (this.selectedMode === 'pvp_1v1') {
       modeName = '⚔️ 纯粹 PVP 决斗';
     } else if (this.selectedMode === 'skywars_1v1') {
       modeName = '🏝️ 空岛战争 1v1';
@@ -223,7 +235,11 @@ class BedwarsGame {
     this.currentMode = mode;
     this.currentTeamSize = teamSize;
     this.currentDifficulty = difficulty;
-    this.currentMap = this.selectedMap || 'boogie';
+    if (mode === 'school_br') {
+      this.currentMap = 'school';
+    } else {
+      this.currentMap = this.selectedMap || 'boogie';
+    }
 
     this.applyMapAtmosphere(this.currentMap);
 
@@ -285,10 +301,11 @@ class BedwarsGame {
     // 4. Resource Generators & Shop NPCs
     const isPvp = (mode === 'pvp_1v1');
     const isSkyWars = (mode && mode.startsWith('skywars'));
+    const isSchoolBR = (mode === 'school_br');
 
     this.generatorManager = new GeneratorManager(this.scene);
     this.generators = this.generatorManager; // Alias
-    if (!isPvp && !isSkyWars) {
+    if (!isPvp && !isSkyWars && !isSchoolBR) {
       this.generatorManager.initSpawners(mode);
     }
 
@@ -297,14 +314,14 @@ class BedwarsGame {
     } else {
       this.shopManager.player = this.player;
     }
-    if (!isPvp && !isSkyWars) {
+    if (!isPvp && !isSkyWars && !isSchoolBR) {
       this.shopManager.initVillagerNPCs(mode);
     }
     window.shopManager = this.shopManager;
 
     const resDisplay = document.getElementById('resources-display');
     if (resDisplay) {
-      resDisplay.style.display = (isPvp || isSkyWars) ? 'none' : 'flex';
+      resDisplay.style.display = (isPvp || isSkyWars || isSchoolBR) ? 'none' : 'flex';
     }
 
     // 5. Spawn Bots & Configure Equipment based on Mode
@@ -409,6 +426,77 @@ class BedwarsGame {
           initialState: 'LOOT_CHEST'
         }));
       }
+    } else if (isSchoolBR) {
+      // 16-Player Battle Royale across Campus
+      const schoolSpawnPoints = [
+        new THREE.Vector3(-23, 1.2, 0),    // 操场中圈
+        new THREE.Vector3(-23, 1.2, 20),   // 操场北球门前
+        new THREE.Vector3(-23, 1.2, -20),  // 操场南球门前
+        new THREE.Vector3(-10, 1.2, 18),   // 操场东侧跑道
+        new THREE.Vector3(-39, 5.2, 0),    // 操场看台最高层
+        new THREE.Vector3(-2, 1.2, -26),   // 校园大门
+        new THREE.Vector3(0, 1.2, 0),      // 校园喷泉广场
+        new THREE.Vector3(-2, 1.2, 24),    // 校园北花园林道
+        new THREE.Vector3(10, 1.2, 0),     // 教学楼1F主大厅
+        new THREE.Vector3(26, 1.2, 12),    // 教学楼1F 101教室
+        new THREE.Vector3(26, 1.2, -12),   // 教学楼1F 102教室
+        new THREE.Vector3(26, 6.2, 12),    // 教学楼2F 201实验实训室
+        new THREE.Vector3(26, 6.2, -12),   // 教学楼2F 202机房
+        new THREE.Vector3(10, 6.2, 12),    // 教学楼2F 图书馆
+        new THREE.Vector3(26, 11.2, 12),   // 教学楼3F 301美术多功能厅
+        new THREE.Vector3(25, 16.2, -8)    // 教学楼天台水塔观景台
+      ];
+
+      // Shuffle 16 spawn points so every participant gets a unique location
+      const spawnIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].sort(() => Math.random() - 0.5);
+
+      // Player spawn
+      const pSpawn = schoolSpawnPoints[spawnIndices[0]];
+      this.player.position.copy(pSpawn);
+      this.player.spawnPoint = pSpawn.clone();
+      this.player.velocity.set(0, 0, 0);
+      this.player.onGround = false;
+      this.player.yaw = Math.random() * Math.PI * 2;
+      this.player.pitch = 0;
+      this.player.armorTier = 'none';
+      this.player.hotbar = [
+        { id: 'sword_wooden', name: '战术木剑', type: 'weapon', count: 1, damage: 4 },
+        null, null, null, null, null, null, null, null
+      ];
+      this.player.updateHUD();
+      this.player.updateHeldItemVisual();
+
+      // 15 Bot participants
+      const botNames = [
+        '操场飞人', '隔壁班小王', '绝地神剑', '空岛老六', '校霸阿强',
+        '学委小红', '风骚走位哥', '狙击之王', '天台老哥', '伏地魔',
+        '跳劈大神', '末影游侠', '夜行刺客', '自律学神', '幻影剑客'
+      ];
+      const presetList = ['steve', 'alex', 'zombie', 'skeleton', 'enderman', 'creeper', 'knight', 'cyber', 'demon'];
+
+      this.teams = ['red'];
+      for (let i = 0; i < 15; i++) {
+        const bTeam = `br_${i + 1}`;
+        this.teams.push(bTeam);
+        const bId = `bot_br_${i + 1}`;
+        const bSpawn = schoolSpawnPoints[spawnIndices[i + 1]];
+
+        // Random skin assignment
+        const randomSkinId = presetList[Math.floor(Math.random() * presetList.length)];
+        if (window.SkinManager) {
+          window.SkinManager.setBotSkin(bId, { type: 'preset', id: randomSkinId });
+        }
+
+        const bot = new Bot(this.scene, this.world, {
+          id: bId,
+          name: botNames[i],
+          team: bTeam,
+          difficulty,
+          spawnPos: { x: bSpawn.x, y: bSpawn.y, z: bSpawn.z },
+          initialState: 'LOOT_CHEST'
+        });
+        this.bots.push(bot);
+      }
     } else if (mode === '4teams') {
       this.teams = ['red', 'blue', 'green', 'yellow'];
 
@@ -496,12 +584,15 @@ class BedwarsGame {
     const sbTitleEl = document.getElementById('scoreboard-title');
     const modeTitleEl = document.getElementById('sb-mode-title');
     if (sbTitleEl) {
-      if (isPvp) sbTitleEl.innerText = '1V1 DUEL';
+      if (isSchoolBR) sbTitleEl.innerText = 'BATTLE ROYALE';
+      else if (isPvp) sbTitleEl.innerText = '1V1 DUEL';
       else if (isSkyWars) sbTitleEl.innerText = 'SKY WARS';
       else sbTitleEl.innerText = 'BED WARS';
     }
     if (modeTitleEl) {
-      if (isPvp) {
+      if (isSchoolBR) {
+        modeTitleEl.innerText = '🐔 校园吃鸡 · 16人混战';
+      } else if (isPvp) {
         modeTitleEl.innerText = '决斗角斗场 · 纯粹 PVP';
       } else if (isSkyWars) {
         modeTitleEl.innerText = mode === 'skywars_4p' ? '空岛战争 4人混战' : '空岛战争 1v1';
@@ -664,7 +755,10 @@ class BedwarsGame {
       this.lastTime = performance.now();
       lockPointer();
 
-      if (this.currentMode === 'pvp_1v1') {
+      if (this.currentMode === 'school_br') {
+        this.addChatMessage('§6[校园吃鸡 16人混战] 比赛正式开始！');
+        this.addChatMessage('§e16人全随机散布操场与教学楼！快速搜箱抢装，下落跳劈双倍暴击！');
+      } else if (this.currentMode === 'pvp_1v1') {
         this.addChatMessage('§6[1v1 纯粹决斗] 比赛正式开始！');
         this.addChatMessage('§e满配钻石神装已发放！运用身法与跳劈击败对手！');
       } else if (this.currentMode && this.currentMode.startsWith('skywars')) {
@@ -794,7 +888,27 @@ class BedwarsGame {
     }
   }
 
-  onFinalKill(team, bot) {
+  onFinalKill(team, bot, killer = null) {
+    if (this.currentMode === 'school_br') {
+      let aliveBots = 0;
+      for (const b of this.bots) {
+        if (!b.isDead) aliveBots++;
+      }
+      const totalAlive = (this.player && !this.player.isDead ? 1 : 0) + aliveBots;
+
+      if (killer && (killer.includes('玩家') || killer === '你')) {
+        this.kills++;
+      }
+
+      const victimName = bot ? bot.name : (team === 'red' ? '你' : team);
+      const killerDisplay = killer ? `被 §f${killer} §e` : '';
+      this.addChatMessage(`§e[淘汰] §f${victimName} §e${killerDisplay}淘汰出局！(剩余 §c${totalAlive} §e人)`);
+
+      this.updateScoreboard();
+      this.checkMatchOutcome();
+      return;
+    }
+
     const teamNames = { red: '红队', blue: '蓝队', green: '绿队', yellow: '黄队' };
     const tName = teamNames[team] || team;
 
@@ -826,6 +940,25 @@ class BedwarsGame {
   }
 
   checkMatchOutcome() {
+    if (this.currentMode === 'school_br') {
+      let aliveBots = 0;
+      for (const b of this.bots) {
+        if (!b.isDead) aliveBots++;
+      }
+      const playerAlive = (this.player && !this.player.isDead);
+
+      if (!playerAlive) {
+        this.defeat();
+        return;
+      }
+
+      if (playerAlive && aliveBots === 0) {
+        this.victory();
+        return;
+      }
+      return;
+    }
+
     // 1. Check if Red Team is eliminated
     const redBedDead = !this.world.bedStatus.red;
     let redAlive = 0;
@@ -863,6 +996,28 @@ class BedwarsGame {
   victory() {
     this.isGameRunning = false;
     window.soundManager.playVictory();
+
+    if (this.currentMode === 'school_br') {
+      this.showBigBanner('§6★ 大吉大利，今晚吃鸡！ ★', '你是校园大逃杀唯一幸存者！');
+      setTimeout(() => {
+        if (document.exitPointerLock) document.exitPointerLock();
+        const modal = document.getElementById('gameover-modal');
+        const title = document.getElementById('modal-title');
+        const stats = document.getElementById('modal-stats');
+        if (modal && title && stats) {
+          title.innerHTML = '§6★ 大吉大利，今晚吃鸡！ ★';
+          stats.innerHTML = `
+            🏆 最终排名: #1 / 16 (吃鸡大赢家)<br>
+            ⚔️ 淘汰击杀: ${this.kills}<br>
+            ⏱️ 比赛用时: ${Math.floor(this.matchTime)} 秒<br>
+            恭喜在操场与3层教学楼中成功称霸！
+          `;
+          modal.style.display = 'block';
+        }
+      }, 2500);
+      return;
+    }
+
     this.showBigBanner('§6★ 恭喜胜利！ ★', '所有敌方队伍均已被歼灭！');
 
     setTimeout(() => {
@@ -885,6 +1040,33 @@ class BedwarsGame {
 
   defeat() {
     this.isGameRunning = false;
+
+    if (this.currentMode === 'school_br') {
+      let aliveBots = 0;
+      for (const b of this.bots) {
+        if (!b.isDead) aliveBots++;
+      }
+      const rank = aliveBots + 1;
+      this.showBigBanner('§c你已被淘汰！', `最终排名: #${rank} / 16`);
+
+      setTimeout(() => {
+        if (document.exitPointerLock) document.exitPointerLock();
+        const modal = document.getElementById('gameover-modal');
+        const title = document.getElementById('modal-title');
+        const stats = document.getElementById('modal-stats');
+        if (modal && title && stats) {
+          title.innerHTML = '§c淘汰出局';
+          stats.innerHTML = `
+            最终排名: #${rank} / 16<br>
+            淘汰击杀: ${this.kills}<br>
+            存活用时: ${Math.floor(this.matchTime)} 秒
+          `;
+          modal.style.display = 'block';
+        }
+      }, 2500);
+      return;
+    }
+
     this.showBigBanner('§c游戏结束', '红队已被彻底淘汰！');
 
     setTimeout(() => {
@@ -965,6 +1147,41 @@ class BedwarsGame {
     const finalKillsEl = document.getElementById('sb-final-kills');
     const bedsEl = document.getElementById('sb-beds');
     const teamsContainer = document.getElementById('sb-teams-container');
+
+    if (this.currentMode === 'school_br') {
+      let aliveBots = 0;
+      for (const b of this.bots) {
+        if (!b.isDead) aliveBots++;
+      }
+      const totalAlive = (this.player && !this.player.isDead ? 1 : 0) + aliveBots;
+
+      if (diaTimerEl && diaTimerEl.parentElement) diaTimerEl.parentElement.style.display = 'none';
+      if (emeTimerEl && emeTimerEl.parentElement) emeTimerEl.parentElement.style.display = 'none';
+      if (killsEl) killsEl.innerText = this.kills;
+      if (finalKillsEl && finalKillsEl.parentElement) finalKillsEl.parentElement.style.display = 'none';
+      if (bedsEl && bedsEl.parentElement) bedsEl.parentElement.style.display = 'none';
+
+      if (teamsContainer) {
+        let html = `
+          <div style="font-size: 14px; font-weight: bold; color: #67e8f9; margin-bottom: 6px;">
+            👥 存活人数: <span style="color: #ffff55;">${totalAlive} / 16</span>
+          </div>
+          <div style="font-size: 13px; color: #ffaa00; margin-bottom: 4px;">
+            ⚔️ 击败敌人数: <span style="color: #fff; font-weight: bold;">${this.kills}</span>
+          </div>
+          <div style="font-size: 12px; color: #aaa;">
+            ⏱️ 比赛用时: <span style="color: #fff;">${Math.floor(this.matchTime)} 秒</span>
+          </div>
+        `;
+        teamsContainer.innerHTML = html;
+      }
+      return;
+    }
+
+    if (diaTimerEl && diaTimerEl.parentElement) diaTimerEl.parentElement.style.display = 'block';
+    if (emeTimerEl && emeTimerEl.parentElement) emeTimerEl.parentElement.style.display = 'block';
+    if (finalKillsEl && finalKillsEl.parentElement) finalKillsEl.parentElement.style.display = 'block';
+    if (bedsEl && bedsEl.parentElement) bedsEl.parentElement.style.display = 'block';
 
     if (diaTimerEl) diaTimerEl.innerText = `0:${String(Math.ceil(this.diamondTimer)).padStart(2, '0')}`;
     if (emeTimerEl) emeTimerEl.innerText = `0:${String(Math.ceil(this.emeraldTimer)).padStart(2, '0')}`;

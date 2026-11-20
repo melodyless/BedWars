@@ -72,6 +72,16 @@ class VoxelWorld {
     this.materials['PURPUR'] = new THREE.MeshLambertMaterial({ map: purpur });
     this.materials['GLOWSTONE'] = new THREE.MeshLambertMaterial({ map: glowstone });
 
+    // School Map & Decorative Materials
+    this.materials['WHITE_WOOL'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getWool('#eaeded', '#cfd8dc') });
+    this.materials['BLACK_WOOL'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getWool('#202020', '#111111') });
+    this.materials['ORANGE_WOOL'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getWool('#e67e22', '#d35400') });
+    this.materials['PURPLE_WOOL'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getWool('#8e44ad', '#6c3483') });
+    this.materials['CYAN_WOOL'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getWool('#16a085', '#117a65') });
+    this.materials['GLASS'] = new THREE.MeshLambertMaterial({ color: 0x90caf9, transparent: true, opacity: 0.65 });
+    this.materials['QUARTZ'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getMineralBlock('#f5f5f5', '#ffffff', '#e2e2e2') });
+    this.materials['OAK_WOOD'] = new THREE.MeshLambertMaterial({ map: planks });
+
     // Beds
     const redBedTex = TextureGenerator.getBedTexture('red');
     const blueBedTex = TextureGenerator.getBedTexture('blue');
@@ -389,16 +399,107 @@ class VoxelWorld {
     }
   }
 
-  // SkyWars Chest Registration & Procedural Loot Generators
-  registerChest(x, y, z, isCenter = false) {
+  // Chest Registration & Procedural Loot Generators
+  registerChest(x, y, z, isCenter = false, isSchool = false) {
     const key = this.getKey(x, y, z);
-    const items = isCenter ? this.generateCenterChestLoot() : this.generateSpawnChestLoot();
+    const items = isSchool ? this.generateSchoolRandomLoot() : (isCenter ? this.generateCenterChestLoot() : this.generateSpawnChestLoot());
     this.chests.set(key, {
       x, y, z,
       isCenter,
+      isSchool,
       opened: false,
       items: items
     });
+  }
+
+  generateSchoolRandomLoot() {
+    // Pure procedural random loot for School Battle Royale chests
+    const slots = new Array(27).fill(null);
+    const usedIndices = new Set();
+    const getRandomSlot = () => {
+      let slotIdx;
+      do {
+        slotIdx = Math.floor(Math.random() * 27);
+      } while (usedIndices.has(slotIdx));
+      usedIndices.add(slotIdx);
+      return slotIdx;
+    };
+
+    const weapons = [
+      { id: 'sword_wooden', name: '战术木剑', type: 'weapon', count: 1, damage: 4 },
+      { id: 'sword_stone', name: '锋利石剑', type: 'weapon', count: 1, damage: 5 },
+      { id: 'sword_iron', name: '精炼铁剑', type: 'weapon', count: 1, damage: 6 },
+      { id: 'sword_diamond', name: '锋利钻石神剑', type: 'weapon', count: 1, damage: 7 }
+    ];
+
+    const armors = [
+      { id: 'armor_chain', name: '锁链胸甲', type: 'armor', tier: 'chain', count: 1 },
+      { id: 'armor_iron', name: '重装铁甲', type: 'armor', tier: 'iron', count: 1 },
+      { id: 'armor_diamond', name: '坚韧钻石神甲', type: 'armor', tier: 'diamond', count: 1 }
+    ];
+
+    const ranged = [
+      { id: 'bow_normal', name: '战术木弓', type: 'bow', bowType: 'normal', count: 1 },
+      { id: 'bow_power', name: '力量强弓 (增伤)', type: 'bow', bowType: 'power', count: 1 },
+      { id: 'arrow_stack', name: '箭矢 x16', type: 'arrow', count: 16 },
+      { id: 'arrow_stack_large', name: '箭矢 x32', type: 'arrow', count: 32 }
+    ];
+
+    const heals = [
+      { id: 'golden_apple', name: '金苹果 x2', type: 'utility', count: 2 },
+      { id: 'golden_apple_3', name: '金苹果 x3', type: 'utility', count: 3 },
+      { id: 'enchanted_golden_apple', name: '附魔金苹果', type: 'utility', count: 1 },
+      { id: 'potion_regen', name: '恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, count: 1 }
+    ];
+
+    const buffPotions = [
+      { id: 'potion_speed', name: '迅捷药水 II (45秒)', type: 'potion', potionType: 'speed', duration: 45, count: 1 },
+      { id: 'potion_jump', name: '跳跃药水 V (45秒)', type: 'potion', potionType: 'jump', duration: 45, count: 1 },
+      { id: 'potion_invis', name: '隐形药水 (30秒)', type: 'potion', potionType: 'invis', duration: 30, count: 1 }
+    ];
+
+    const throwables = [
+      { id: 'fireball', name: '烈焰弹', type: 'utility', count: 1 + Math.floor(Math.random() * 2) },
+      { id: 'ender_pearl', name: '末影珍珠', type: 'utility', count: 1 + (Math.random() < 0.4 ? 1 : 0) }
+    ];
+
+    const blocks = [
+      { id: 'wool_stack_white', name: '白色羊毛 x32', type: 'block', blockType: 'WHITE_WOOL', count: 32 },
+      { id: 'wool_stack_red', name: '红色羊毛 x32', type: 'block', blockType: 'RED_WOOL', count: 32 },
+      { id: 'wool_stack_blue', name: '蓝色羊毛 x32', type: 'block', blockType: 'BLUE_WOOL', count: 32 },
+      { id: 'wood_planks', name: '橡木木板 x32', type: 'block', blockType: 'OAK_PLANKS', count: 32 }
+    ];
+
+    const tools = [
+      { id: 'pickaxe_iron', name: '铁镐', type: 'tool', count: 1 },
+      { id: 'pickaxe_diamond', name: '钻石镐', type: 'tool', count: 1 },
+      { id: 'shears', name: '剪刀', type: 'tool', count: 1 }
+    ];
+
+    const combinedPool = [
+      ...weapons,
+      ...armors,
+      ...ranged,
+      ...heals,
+      ...buffPotions,
+      ...throwables,
+      ...blocks,
+      ...tools
+    ];
+
+    // Pick 4 to 8 completely random items
+    const numItems = 4 + Math.floor(Math.random() * 5);
+    const shuffled = [...combinedPool].sort(() => Math.random() - 0.5);
+
+    for (let i = 0; i < numItems && i < shuffled.length; i++) {
+      const item = { ...shuffled[i] };
+      if (item.type === 'block') item.count = 16 + Math.floor(Math.random() * 32);
+      if (item.type === 'arrow') item.count = 12 + Math.floor(Math.random() * 24);
+      if (item.id === 'golden_apple') item.count = 1 + Math.floor(Math.random() * 3);
+      slots[getRandomSlot()] = item;
+    }
+
+    return slots;
   }
 
   generateSpawnChestLoot() {
@@ -654,7 +755,9 @@ class VoxelWorld {
 
     this.isGenerating = true;
 
-    if (mode === 'pvp_1v1' || mapType === 'arena') {
+    if (mode === 'school_br' || mapType === 'school') {
+      this.generateSchoolMap();
+    } else if (mode === 'pvp_1v1' || mapType === 'arena') {
       this.generatePvPArena();
     } else if (mode.startsWith('skywars') || mapType === 'skywars') {
       this.generateSkyWarsMap(mode);
@@ -670,6 +773,450 @@ class VoxelWorld {
 
     this.isGenerating = false;
     this.buildBatchedMeshes();
+  }
+
+  // 0. School Battle Royale: Campus Sports Ground & 3-Story Teaching Building
+  generateSchoolMap() {
+    this.bedStatus = { red: false, blue: false, green: false, yellow: false };
+
+    const minX = -42, maxX = 38;
+    const minZ = -36, maxZ = 36;
+
+    // 1. Campus Ground Foundation (Stone base, grass surface, paved paths)
+    for (let x = minX; x <= maxX; x++) {
+      for (let z = minZ; z <= maxZ; z++) {
+        this.setBlock(x, -1, z, 'STONE', false);
+        this.setBlock(x, -2, z, 'STONE', false);
+
+        // Ground top block
+        const isCentralRoad = (x >= -6 && x <= 6);
+        const isPlaza = (x >= 4 && x <= 16 && z >= -8 && z <= 8);
+        const isBuildingFootprint = (x >= 6 && x <= 36 && z >= -24 && z <= 24);
+
+        if (isBuildingFootprint) {
+          // Inside 1F building floor: polished stone brick
+          this.setBlock(x, 0, z, 'STONE_BRICK', false);
+        } else if (isCentralRoad || isPlaza) {
+          this.setBlock(x, 0, z, (x + z) % 2 === 0 ? 'STONE_BRICK' : 'QUARTZ', false);
+        } else {
+          this.setBlock(x, 0, z, 'GRASS', false);
+        }
+
+        // Surrounding Security Boundary Wall with Lanterns
+        const isBorder = (x === minX || x === maxX || z === minZ || z === maxZ);
+        if (isBorder) {
+          this.setBlock(x, 1, z, 'STONE_BRICK', false);
+          this.setBlock(x, 2, z, 'MOSSY_STONE_BRICK', false);
+          if ((x % 6 === 0 || z % 6 === 0) || (Math.abs(x) === maxX && Math.abs(z) === maxZ)) {
+            this.setBlock(x, 3, z, 'STONE_BRICK', false);
+            this.setBlock(x, 4, z, 'GLOWSTONE', false);
+          }
+        }
+      }
+    }
+
+    // 2. Playground (West Zone)
+    // 2.1 Running Track (Red track with white lane divider)
+    const trackMinX = -36, trackMaxX = -10;
+    const trackMinZ = -28, trackMaxZ = 28;
+    for (let x = trackMinX; x <= trackMaxX; x++) {
+      for (let z = trackMinZ; z <= trackMaxZ; z++) {
+        const isTrackX = (x <= -32 || x >= -14);
+        const isTrackZ = (z <= -24 || z >= 24);
+        if (isTrackX || isTrackZ) {
+          // Lane divider at x = -34 and x = -12, or z = -26 and z = 26
+          const isLaneDivider = (x === -34 || x === -12 || z === -26 || z === 26);
+          if (z === 0 && x >= -14 && x <= -10) {
+            // Finish line checkerboard
+            this.setBlock(x, 0, z, (x % 2 === 0) ? 'WHITE_WOOL' : 'RED_WOOL', false);
+          } else if (isLaneDivider) {
+            this.setBlock(x, 0, z, 'WHITE_WOOL', false);
+          } else {
+            this.setBlock(x, 0, z, 'RED_WOOL', false);
+          }
+        }
+      }
+    }
+
+    // 2.2 Football Field (Inside running track: X from -32 to -14, Z from -24 to 24)
+    const pitchMinX = -32, pitchMaxX = -14;
+    const pitchMinZ = -24, pitchMaxZ = 24;
+    const midX = -23;
+    for (let x = pitchMinX; x <= pitchMaxX; x++) {
+      for (let z = pitchMinZ; z <= pitchMaxZ; z++) {
+        // Striped grass pattern
+        const stripe = Math.floor((z + 24) / 4) % 2 === 0;
+        this.setBlock(x, 0, z, stripe ? 'GRASS' : 'GREEN_WOOL', false);
+
+        // Boundary white lines
+        const isPitchBorder = (x === pitchMinX || x === pitchMaxX || z === pitchMinZ || z === pitchMaxZ);
+        const isCenterLine = (z === 0);
+        const dCenter = Math.hypot(x - midX, z - 0);
+        const isCenterCircle = (dCenter >= 2.5 && dCenter <= 3.6);
+        const isCenterSpot = (x === midX && z === 0);
+
+        // Penalty boxes
+        const isNorthBox = (z >= 18 && z <= 24 && (x === -27 || x === -19 || z === 18));
+        const isSouthBox = (z <= -18 && z >= -24 && (x === -27 || x === -19 || z === -18));
+
+        if (isPitchBorder || isCenterLine || isCenterCircle || isCenterSpot || isNorthBox || isSouthBox) {
+          this.setBlock(x, 0, z, 'WHITE_WOOL', false);
+        }
+      }
+    }
+
+    // 2.3 Football Goals (North and South)
+    const goalXMin = -26, goalXMax = -20;
+    for (const gz of [24, -24]) {
+      const netZ = gz > 0 ? gz + 1 : gz - 1;
+      // Posts
+      for (let y = 1; y <= 3; y++) {
+        this.setBlock(goalXMin, y, gz, 'WHITE_WOOL', false);
+        this.setBlock(goalXMax, y, gz, 'WHITE_WOOL', false);
+      }
+      // Crossbar
+      for (let x = goalXMin; x <= goalXMax; x++) {
+        this.setBlock(x, 3, gz, 'WHITE_WOOL', false);
+      }
+      // Net behind
+      for (let x = goalXMin; x <= goalXMax; x++) {
+        for (let y = 1; y <= 3; y++) {
+          this.setBlock(x, y, netZ, 'WHITE_WOOL', false);
+        }
+      }
+    }
+
+    // 2.4 Spectator Grandstand (West wall: X from -41 to -37, Z from -18 to 18)
+    for (let z = -18; z <= 18; z++) {
+      // Tier 1
+      this.setBlock(-37, 1, z, 'QUARTZ', false);
+      this.setBlock(-37, 2, z, 'OAK_PLANKS', false);
+      // Tier 2
+      this.setBlock(-38, 1, z, 'QUARTZ', false);
+      this.setBlock(-38, 2, z, 'QUARTZ', false);
+      this.setBlock(-38, 3, z, 'OAK_PLANKS', false);
+      // Tier 3
+      this.setBlock(-39, 1, z, 'QUARTZ', false);
+      this.setBlock(-39, 2, z, 'QUARTZ', false);
+      this.setBlock(-39, 3, z, 'QUARTZ', false);
+      this.setBlock(-39, 4, z, 'OAK_PLANKS', false);
+      // Tier 4 aisle
+      this.setBlock(-40, 1, z, 'QUARTZ', false);
+      this.setBlock(-40, 2, z, 'QUARTZ', false);
+      this.setBlock(-40, 3, z, 'QUARTZ', false);
+      this.setBlock(-40, 4, z, 'QUARTZ', false);
+    }
+    // Canopy Support Pillars & Overhead Sunshade
+    for (const pz of [-18, -9, 0, 9, 18]) {
+      for (let y = 1; y <= 7; y++) {
+        this.setBlock(-41, y, pz, 'STONE_BRICK', false);
+        this.setBlock(-36, y, pz, 'STONE_BRICK', false);
+      }
+      this.setBlock(-36, 6, pz, 'GLOWSTONE', false);
+    }
+    for (let x = -41; x <= -36; x++) {
+      for (let z = -18; z <= 18; z++) {
+        const stripe = Math.abs(z) % 4 < 2;
+        this.setBlock(x, 7, z, stripe ? 'BLUE_WOOL' : 'WHITE_WOOL', false);
+      }
+    }
+
+    // 2.5 Basketball Half-Court (North corner: X from -36 to -24, Z from 26 to 34)
+    for (let x = -36; x <= -24; x++) {
+      for (let z = 26; z <= 34; z++) {
+        this.setBlock(x, 0, z, 'OAK_PLANKS', false);
+      }
+    }
+    // Basketball Hoop
+    for (let y = 1; y <= 4; y++) this.setBlock(-30, y, 34, 'IRON_BLOCK', false);
+    for (let hx = -31; hx <= -29; hx++) {
+      this.setBlock(hx, 4, 34, 'WHITE_WOOL', false);
+      this.setBlock(hx, 5, 34, 'WHITE_WOOL', false);
+    }
+    this.setBlock(-30, 4, 33, 'ORANGE_WOOL', false);
+
+    // 3. Central Courtyard & School Gate
+    // Gate archway at z = -34, x from -3 to 3
+    for (let y = 1; y <= 5; y++) {
+      this.setBlock(-3, y, -34, 'STONE_BRICK', false);
+      this.setBlock(3, y, -34, 'STONE_BRICK', false);
+    }
+    for (let x = -3; x <= 3; x++) {
+      this.setBlock(x, 5, -34, 'STONE_BRICK', false);
+    }
+    this.setBlock(0, 5, -34, 'GOLD_BLOCK', false);
+
+    // Central Monument / Fountain at (0, 0)
+    for (let x = -2; x <= 2; x++) {
+      for (let z = -2; z <= 2; z++) {
+        const isEdge = (Math.abs(x) === 2 || Math.abs(z) === 2);
+        if (isEdge) {
+          this.setBlock(x, 1, z, 'STONE_BRICK', false);
+        } else {
+          this.setBlock(x, 1, z, 'PURPUR', false);
+        }
+      }
+    }
+    this.setBlock(0, 2, 0, 'GLOWSTONE', false);
+
+    // Green hedges and lamp posts along courtyard paths
+    for (const lz of [-24, -14, 14, 24]) {
+      this.setBlock(-5, 1, lz, 'GREEN_WOOL', false);
+      this.setBlock(5, 1, lz, 'GREEN_WOOL', false);
+      this.setBlock(-5, 2, lz, 'GLOWSTONE', false);
+      this.setBlock(5, 2, lz, 'GLOWSTONE', false);
+    }
+
+    // 4. Three-Story Teaching Building (East Zone: X: 6 to 36, Z: -24 to 24)
+    const bMinX = 6, bMaxX = 36;
+    const bMinZ = -24, bMaxZ = 24;
+
+    // 4.1 Floors and Ceilings
+    for (let x = bMinX; x <= bMaxX; x++) {
+      for (let z = bMinZ; z <= bMaxZ; z++) {
+        // Leave staircase cutout area open: X from 15 to 17, Z from -3 to 3
+        const isStairWell = (x >= 15 && x <= 17 && z >= -3 && z <= 3);
+
+        // 2F Floor at y = 5
+        if (!isStairWell) {
+          this.setBlock(x, 5, z, 'STONE_BRICK', false);
+        }
+        // 3F Floor at y = 10
+        if (!isStairWell) {
+          this.setBlock(x, 10, z, 'STONE_BRICK', false);
+        }
+        // Rooftop Floor at y = 15
+        if (!isStairWell) {
+          this.setBlock(x, 15, z, 'STONE_BRICK', false);
+        }
+      }
+    }
+
+    // 4.2 Exterior Walls with Windows for all 3 stories
+    for (let y = 1; y <= 15; y++) {
+      const isWindowLevel = (y === 2 || y === 3 || y === 7 || y === 8 || y === 12 || y === 13);
+      for (let z = bMinZ; z <= bMaxZ; z++) {
+        // West Wall (X = bMinX = 6) - facing courtyard
+        const isMainDoor = (z >= -3 && z <= 3 && y <= 3);
+        if (!isMainDoor) {
+          const isWindow = isWindowLevel && (Math.abs(z) >= 6 && Math.abs(z) <= 22);
+          this.setBlock(bMinX, y, z, isWindow ? 'GLASS' : 'STONE_BRICK', false);
+        }
+
+        // East Wall (X = bMaxX = 36) - classroom exterior daylight
+        const isWindowEast = isWindowLevel && (Math.abs(z) >= 4 && Math.abs(z) <= 21);
+        this.setBlock(bMaxX, y, z, isWindowEast ? 'GLASS' : 'QUARTZ', false);
+      }
+
+      for (let x = bMinX; x <= bMaxX; x++) {
+        // North Wall (Z = bMaxZ = 24)
+        const isNorthWindow = isWindowLevel && (x >= 22 && x <= 32);
+        this.setBlock(x, y, bMaxZ, isNorthWindow ? 'GLASS' : 'STONE_BRICK', false);
+
+        // South Wall (Z = bMinZ = -24)
+        const isSouthWindow = isWindowLevel && (x >= 22 && x <= 32);
+        this.setBlock(x, y, bMinZ, isSouthWindow ? 'GLASS' : 'STONE_BRICK', false);
+      }
+    }
+
+    // Entrance canopy on West side (y = 4, X: 4 to 6, Z: -4 to 4)
+    for (let x = 4; x <= 6; x++) {
+      for (let z = -4; z <= 4; z++) {
+        this.setBlock(x, 4, z, 'QUARTZ', false);
+      }
+    }
+
+    // 4.3 Interior Partition Walls and Corridor
+    // Corridor: X: 14 to 18 (width 5 blocks)
+    for (const floorBaseY of [1, 6, 11]) {
+      for (let h = 0; h < 4; h++) {
+        const y = floorBaseY + h;
+
+        // West corridor wall (X = 13)
+        for (let z = bMinZ + 1; z <= bMaxZ - 1; z++) {
+          const isDoor = (z >= 10 && z <= 12 && h < 3) || (z >= -12 && z <= -10 && h < 3) || (z >= -2 && z <= 2 && h < 3);
+          if (!isDoor) {
+            this.setBlock(13, y, z, 'QUARTZ', false);
+          }
+        }
+
+        // East corridor wall (X = 19)
+        for (let z = bMinZ + 1; z <= bMaxZ - 1; z++) {
+          const isDoor = (z >= 6 && z <= 8 && h < 3) || (z >= -8 && z <= -6 && h < 3);
+          if (!isDoor) {
+            this.setBlock(19, y, z, 'QUARTZ', false);
+          }
+        }
+
+        // Classroom divider wall (Z = 0, X from 20 to 35)
+        for (let x = 20; x <= 35; x++) {
+          this.setBlock(x, y, 0, 'STONE_BRICK', false);
+        }
+      }
+
+      // Ceiling glowstone lighting in corridors
+      for (const gz of [-18, -9, 9, 18]) {
+        this.setBlock(16, floorBaseY + 3, gz, 'GLOWSTONE', false);
+      }
+    }
+
+    // 4.4 Furnish Classrooms for all 3 floors
+    for (const floorBaseY of [1, 6, 11]) {
+      // Blackboards on front dividing wall
+      for (let x = 23; x <= 31; x++) {
+        this.setBlock(x, floorBaseY + 1, 1, 'BLACK_WOOL', false);
+        this.setBlock(x, floorBaseY + 2, 1, 'BLACK_WOOL', false);
+        this.setBlock(x, floorBaseY + 1, -1, 'BLACK_WOOL', false);
+        this.setBlock(x, floorBaseY + 2, -1, 'BLACK_WOOL', false);
+      }
+
+      // Teacher's Podiums
+      for (let x = 22; x <= 24; x++) {
+        this.setBlock(x, floorBaseY, 3, 'OAK_PLANKS', false);
+        this.setBlock(x, floorBaseY, -3, 'OAK_PLANKS', false);
+      }
+
+      // Student Desks & Chairs
+      for (const dz of [7, 12, 17]) {
+        for (const dx of [23, 27, 31]) {
+          this.setBlock(dx, floorBaseY, dz, 'OAK_PLANKS', false);
+          this.setBlock(dx, floorBaseY, -dz, 'OAK_PLANKS', false);
+        }
+      }
+
+      // Additional room specific props:
+      if (floorBaseY === 6) {
+        // 2F Science & Computer Labs: Bookshelves and tables
+        for (let x = 22; x <= 33; x += 2) {
+          this.setBlock(x, floorBaseY, 21, 'PURPUR', false);
+          this.setBlock(x, floorBaseY, -21, 'PURPUR', false);
+        }
+      } else if (floorBaseY === 11) {
+        // 3F Art & Music: Color easels
+        this.setBlock(25, floorBaseY, 15, 'RED_WOOL', false);
+        this.setBlock(29, floorBaseY, 15, 'YELLOW_WOOL', false);
+        this.setBlock(25, floorBaseY, -15, 'BLUE_WOOL', false);
+        this.setBlock(29, floorBaseY, -15, 'PURPLE_WOOL', false);
+      }
+    }
+
+    // 4.5 Smooth Walkable Staircases Connecting 1F -> 2F -> 3F -> Rooftop
+    // 1F to 2F Stair: X = 15 to 17, climbing from Z = -2 to Z = 2
+    for (let x = 15; x <= 17; x++) {
+      this.setBlock(x, 1, -2, 'STONE_BRICK', false);
+      this.setBlock(x, 2, -1, 'STONE_BRICK', false);
+      this.setBlock(x, 3, 0, 'STONE_BRICK', false);
+      this.setBlock(x, 4, 1, 'STONE_BRICK', false);
+      this.setBlock(x, 5, 2, 'STONE_BRICK', false);
+    }
+    // 2F to 3F Stair: X = 15 to 17, climbing from Z = 2 down to Z = -2
+    for (let x = 15; x <= 17; x++) {
+      this.setBlock(x, 6, 2, 'STONE_BRICK', false);
+      this.setBlock(x, 7, 1, 'STONE_BRICK', false);
+      this.setBlock(x, 8, 0, 'STONE_BRICK', false);
+      this.setBlock(x, 9, -1, 'STONE_BRICK', false);
+      this.setBlock(x, 10, -2, 'STONE_BRICK', false);
+    }
+    // 3F to Rooftop Stair: X = 15 to 17, climbing from Z = -2 to Z = 2
+    for (let x = 15; x <= 17; x++) {
+      this.setBlock(x, 11, -2, 'STONE_BRICK', false);
+      this.setBlock(x, 12, -1, 'STONE_BRICK', false);
+      this.setBlock(x, 13, 0, 'STONE_BRICK', false);
+      this.setBlock(x, 14, 1, 'STONE_BRICK', false);
+      this.setBlock(x, 15, 2, 'STONE_BRICK', false);
+    }
+
+    // 4.6 Rooftop (天台: y = 15, Parapet Wall, Penthouse, Water Tank, HVAC)
+    // Parapet Wall around the rooftop perimeter (height y = 16 and 17)
+    for (let z = bMinZ; z <= bMaxZ; z++) {
+      this.setBlock(bMinX, 16, z, 'STONE_BRICK', false);
+      this.setBlock(bMinX, 17, z, 'IRON_BLOCK', false);
+      this.setBlock(bMaxX, 16, z, 'STONE_BRICK', false);
+      this.setBlock(bMaxX, 17, z, 'IRON_BLOCK', false);
+    }
+    for (let x = bMinX; x <= bMaxX; x++) {
+      this.setBlock(x, 16, bMinZ, 'STONE_BRICK', false);
+      this.setBlock(x, 17, bMinZ, 'IRON_BLOCK', false);
+      this.setBlock(x, 16, bMaxZ, 'STONE_BRICK', false);
+      this.setBlock(x, 17, bMaxZ, 'IRON_BLOCK', false);
+    }
+
+    // Staircase Penthouse Exit Shelter (X: 14 to 18, Z: -3 to 3, y: 16 to 18, roof y = 19)
+    for (let x = 14; x <= 18; x++) {
+      for (let z = -3; z <= 3; z++) {
+        const isWall = (x === 14 || x === 18 || z === -3 || z === 3);
+        const isDoor = (x === 14 && z === 0);
+        if (isWall && !isDoor) {
+          for (let y = 16; y <= 18; y++) {
+            this.setBlock(x, y, z, 'STONE_BRICK', false);
+          }
+        }
+        this.setBlock(x, 19, z, 'QUARTZ', false);
+      }
+    }
+    this.setBlock(16, 18, 0, 'GLOWSTONE', false);
+
+    // Water Tower (X = 30, Z = 16, y: 16 to 19)
+    for (let x = 28; x <= 32; x++) {
+      for (let z = 14; z <= 18; z++) {
+        for (let y = 16; y <= 19; y++) {
+          this.setBlock(x, y, z, 'IRON_BLOCK', false);
+        }
+      }
+    }
+    this.setBlock(30, 20, 16, 'RED_WOOL', false);
+
+    // HVAC Units (X = 10, Z = -16, y = 16)
+    for (let x = 9; x <= 11; x++) {
+      for (let z = -17; z <= -15; z++) {
+        this.setBlock(x, 16, z, 'IRON_BLOCK', false);
+      }
+    }
+
+    // Solar panels (X: 25 to 33, Z: -20 to -14)
+    for (let x = 25; x <= 33; x++) {
+      for (let z = -20; z <= -14; z++) {
+        this.setBlock(x, 16, z, 'OBSIDIAN', false);
+      }
+    }
+
+    // 5. Probabilistic Chest Placement Across Campus (~25 locations, ~85% spawn chance)
+    const candidateChests = [
+      { x: -23, y: 1, z: 0 },    // Playground Center
+      { x: -23, y: 1, z: 23 },   // North Goal
+      { x: -23, y: 1, z: -23 },  // South Goal
+      { x: -38, y: 3, z: 6 },    // Bleachers Tier 2 North
+      { x: -38, y: 3, z: -6 },   // Bleachers Tier 2 South
+      { x: -30, y: 1, z: 28 },   // Basketball Court
+      { x: -4, y: 1, z: -28 },   // Campus Gate House
+      { x: 0, y: 1, z: 4 },      // Courtyard Fountain
+      { x: -2, y: 1, z: 20 },    // Courtyard North Garden
+      { x: 10, y: 1, z: 0 },     // 1F Main Entrance Lobby
+      { x: 22, y: 1, z: 5 },     // 1F Classroom 101 Podium
+      { x: 33, y: 1, z: 20 },    // 1F Classroom 101 Back Shelf
+      { x: 22, y: 1, z: -5 },    // 1F Classroom 102 Podium
+      { x: 33, y: 1, z: -20 },   // 1F Classroom 102 Back Shelf
+      { x: 9, y: 1, z: -12 },    // 1F Infirmary
+      { x: 28, y: 6, z: 16 },    // 2F Science Lab 201
+      { x: 28, y: 6, z: -16 },   // 2F Computer Lab 202
+      { x: 9, y: 6, z: 14 },     // 2F Library Bookshelf
+      { x: 16, y: 6, z: 18 },    // 2F Corridor Corner
+      { x: 28, y: 11, z: 16 },   // 3F Art Room 301
+      { x: 28, y: 11, z: -16 },  // 3F Senior Classroom 302
+      { x: 16, y: 11, z: -18 },  // 3F Corridor Locker
+      { x: 27, y: 16, z: 14 },   // Rooftop Water Tower base
+      { x: 10, y: 16, z: -14 },  // Rooftop HVAC Corner
+      { x: 24, y: 16, z: -10 }   // Rooftop Observation Deck
+    ];
+
+    let chestCount = 0;
+    for (const c of candidateChests) {
+      if (Math.random() < 0.85 || chestCount < 18) {
+        this.setBlock(c.x, c.y, c.z, 'CHEST', false);
+        this.registerChest(c.x, c.y, c.z, false, true);
+        chestCount++;
+      }
+    }
   }
 
   // 1. Boogie Islands: Spacious Floating Circular Islands (Scaled Up Authentic Bedwars Map)
