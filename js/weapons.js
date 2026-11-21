@@ -1048,6 +1048,272 @@
       }
 
       return bottle;
+    },
+
+    /**
+     * Creates an authentic Minecraft 1.21 Heavy Mace 3D Model
+     * Composed of a Breeze Rod shaft, reinforced heavy head with flanges,
+     * and a glowing inner Breeze Core.
+     */
+    createMace(options = {}) {
+      const mace = new THREE.Group();
+      mace.name = 'mace_weapon';
+
+      // 1. Materials
+      const rodMat = new THREE.MeshStandardMaterial({
+        color: 0xd97706, // Golden Breeze Rod
+        metalness: 0.4,
+        roughness: 0.5,
+        emissive: 0x92400e,
+        emissiveIntensity: 0.3
+      });
+
+      const rodSwirlMat = new THREE.MeshBasicMaterial({
+        color: 0xfef08a // Breeze wind glow stripe
+      });
+
+      const headMat = new THREE.MeshStandardMaterial({
+        color: 0x334155, // Heavy dark slate / iron alloy
+        metalness: 0.85,
+        roughness: 0.28
+      });
+
+      const flangeMat = new THREE.MeshStandardMaterial({
+        color: 0x64748b, // Reinforced strike plates
+        metalness: 0.9,
+        roughness: 0.2
+      });
+
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8, // Breeze Core gem
+        metalness: 0.2,
+        roughness: 0.1,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.8
+      });
+
+      // 2. Breeze Rod Shaft (Long handle)
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.65, 8), rodMat);
+      shaft.position.set(0, 0, 0);
+      mace.add(shaft);
+
+      // Rod Swirl Bands
+      for (let i = -2; i <= 2; i++) {
+        const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.035, 8), rodSwirlMat);
+        ring.position.set(0, i * 0.1, 0);
+        mace.add(ring);
+      }
+
+      // Pommel cap
+      const pommel = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.055, 0.055), flangeMat);
+      pommel.position.set(0, -0.32, 0);
+      mace.add(pommel);
+
+      // 3. Heavy Mace Head (Striking hammer)
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 0.34, 0);
+
+      // Central Heavy Block
+      const mainBlock = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.18, 0.18), headMat);
+      headGroup.add(mainBlock);
+
+      // Glowing Breeze Core embedded inside mace head
+      const core = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.08), coreMat);
+      headGroup.add(core);
+
+      // 4 Heavy Corner Strike Flanges
+      const flangeGeo = new THREE.BoxGeometry(0.04, 0.22, 0.04);
+      const offsets = [
+        [-0.09, 0, -0.09],
+        [0.09, 0, -0.09],
+        [-0.09, 0, 0.09],
+        [0.09, 0, 0.09]
+      ];
+      offsets.forEach(([ox, oy, oz]) => {
+        const fl = new THREE.Mesh(flangeGeo, flangeMat);
+        fl.position.set(ox, oy, oz);
+        headGroup.add(fl);
+      });
+
+      // Top striking cap
+      const topCap = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.035, 0.14), flangeMat);
+      topCap.position.set(0, 0.11, 0);
+      headGroup.add(topCap);
+
+      mace.add(headGroup);
+
+      // Handle positioning / orientation
+      if (options.isBot) {
+        mace.position.set(0, -0.38, 0.16);
+        mace.rotation.set(-Math.PI / 3, 0, 0);
+        mace.scale.set(1.15, 1.15, 1.15);
+      } else if (options.isDropped) {
+        mace.scale.set(1.3, 1.3, 1.3);
+      } else {
+        // Player first person hand
+        mace.position.set(0.12, -0.15, -0.05);
+        mace.rotation.set(-0.25, 0.45, -0.35);
+        mace.scale.set(1.2, 1.2, 1.2);
+      }
+
+      return mace;
+    },
+
+    /**
+     * Creates an authentic Minecraft 1.21 Wind Charge 3D Model
+     * Swirling breezy orb with dynamic wind rings and translucent core.
+     */
+    createWindCharge(options = {}) {
+      const charge = new THREE.Group();
+      charge.name = 'wind_charge';
+
+      const outerMat = new THREE.MeshStandardMaterial({
+        color: 0xecfeff,
+        transparent: true,
+        opacity: 0.65,
+        roughness: 0.1,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 0.35
+      });
+
+      const coreMat = new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 0.9,
+        roughness: 0.2
+      });
+
+      // Swirling outer sphere
+      const outerSphere = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 14), outerMat);
+      charge.add(outerSphere);
+
+      // Dense inner core
+      const coreSphere = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), coreMat);
+      charge.add(coreSphere);
+
+      // 3 Swirling wind rings at different orbital angles
+      const ringGeo = new THREE.TorusGeometry(0.11, 0.016, 8, 24);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+
+      const ring1 = new THREE.Mesh(ringGeo, ringMat);
+      ring1.rotation.x = Math.PI / 4;
+      charge.add(ring1);
+
+      const ring2 = new THREE.Mesh(ringGeo, ringMat);
+      ring2.rotation.y = Math.PI / 3;
+      charge.add(ring2);
+
+      const ring3 = new THREE.Mesh(ringGeo, ringMat);
+      ring3.rotation.z = Math.PI / 2.5;
+      charge.add(ring3);
+
+      if (options.isProjectile) {
+        charge.scale.set(1.3, 1.3, 1.3);
+      } else if (options.isDropped) {
+        charge.scale.set(1.4, 1.4, 1.4);
+      } else {
+        // First person hand
+        charge.position.set(0.08, -0.04, -0.02);
+        charge.scale.set(1.1, 1.1, 1.1);
+      }
+
+      return charge;
+    },
+
+    /**
+     * Spawns a radial Wind Burst particle shockwave (cyclone puffs & spark vortex)
+     */
+    spawnWindBurstParticles(world, pos) {
+      if (!world || !world.scene || !world.particles) return;
+
+      const puffGeo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
+      const colors = [0xffffff, 0xbae6fd, 0x7dd3fc, 0x38bdf8];
+
+      for (let i = 0; i < 22; i++) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: colors[Math.floor(Math.random() * colors.length)],
+          transparent: true,
+          opacity: 0.88
+        });
+        const puff = new THREE.Mesh(puffGeo, mat);
+        puff.position.copy(pos).add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.4,
+          (Math.random() - 0.2) * 0.4,
+          (Math.random() - 0.5) * 0.4
+        ));
+        world.scene.add(puff);
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 4.0 + Math.random() * 5.5;
+        world.particles.push({
+          mesh: puff,
+          velocity: new THREE.Vector3(
+            Math.cos(angle) * speed,
+            Math.random() * 4.5 + 2.0,
+            Math.sin(angle) * speed
+          ),
+          life: 0.42
+        });
+      }
+    },
+
+    /**
+     * Spawns a Heavy Mace Smash ground shockwave with sparks and dust
+     */
+    spawnSmashShockwave(world, pos) {
+      if (!world || !world.scene || !world.particles) return;
+
+      // Heavy golden / cyan impact sparks
+      const sparkGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+      const sparkColors = [0x38bdf8, 0x0284c7, 0xfde047, 0xffffff];
+
+      for (let i = 0; i < 28; i++) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: sparkColors[Math.floor(Math.random() * sparkColors.length)]
+        });
+        const sp = new THREE.Mesh(sparkGeo, mat);
+        sp.position.copy(pos).add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.6,
+          0.1 + Math.random() * 0.3,
+          (Math.random() - 0.5) * 0.6
+        ));
+        world.scene.add(sp);
+
+        const angle = Math.random() * Math.PI * 2;
+        const hSpeed = 6.0 + Math.random() * 7.0;
+        world.particles.push({
+          mesh: sp,
+          velocity: new THREE.Vector3(
+            Math.cos(angle) * hSpeed,
+            Math.random() * 5.0 + 3.0,
+            Math.sin(angle) * hSpeed
+          ),
+          life: 0.55
+        });
+      }
+
+      // Stone shatter rubble fragments
+      const rubbleGeo = new THREE.BoxGeometry(0.18, 0.18, 0.18);
+      const rubbleMat = new THREE.MeshLambertMaterial({ color: 0x475569 });
+      for (let i = 0; i < 12; i++) {
+        const rb = new THREE.Mesh(rubbleGeo, rubbleMat);
+        rb.position.copy(pos).add(new THREE.Vector3(
+          (Math.random() - 0.5) * 0.5,
+          0.2,
+          (Math.random() - 0.5) * 0.5
+        ));
+        world.scene.add(rb);
+        const angle = Math.random() * Math.PI * 2;
+        world.particles.push({
+          mesh: rb,
+          velocity: new THREE.Vector3(
+            Math.cos(angle) * 4.0,
+            Math.random() * 4.0 + 2.5,
+            Math.sin(angle) * 4.0
+          ),
+          life: 0.6
+        });
+      }
     }
   };
 

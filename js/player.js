@@ -146,13 +146,23 @@ class Player {
     if (!currentItem) return;
 
     if (currentItem.type === 'weapon') {
-      const isEnchanted = !!(window.game && window.game.teamUpgrades && window.game.teamUpgrades.red && window.game.teamUpgrades.red.sharpness > 0);
-      const sword = window.WeaponModelBuilder ?
-        window.WeaponModelBuilder.createSword(currentItem.id, { enchanted: isEnchanted }) :
-        null;
-      if (sword) {
-        this.itemHolder.add(sword);
+      if (currentItem.id === 'mace' || currentItem.weaponType === 'mace') {
+        const mace = window.WeaponModelBuilder ?
+          window.WeaponModelBuilder.createMace() : null;
+        if (mace) this.itemHolder.add(mace);
+      } else {
+        const isEnchanted = !!(window.game && window.game.teamUpgrades && window.game.teamUpgrades.red && window.game.teamUpgrades.red.sharpness > 0);
+        const sword = window.WeaponModelBuilder ?
+          window.WeaponModelBuilder.createSword(currentItem.id, { enchanted: isEnchanted }) :
+          null;
+        if (sword) {
+          this.itemHolder.add(sword);
+        }
       }
+    } else if (currentItem.id === 'wind_charge' || currentItem.projectileType === 'wind_charge') {
+      const charge = window.WeaponModelBuilder ?
+        window.WeaponModelBuilder.createWindCharge() : null;
+      if (charge) this.itemHolder.add(charge);
     } else if (currentItem.id === 'shears' || currentItem.type === 'shears') {
       const shears = window.WeaponModelBuilder ?
         window.WeaponModelBuilder.createShears() :
@@ -561,21 +571,55 @@ class Player {
       const sharpnessBonus = (window.game && window.game.teamUpgrades && window.game.teamUpgrades.red) ? window.game.teamUpgrades.red.sharpness : 0;
       dmg += sharpnessBonus;
 
-      // Jump-Crit: attacking while falling downward deals 2.0x (double) damage!
-      const isCrit = (this.velocity.y < -0.3 && !this.onGround);
-      if (isCrit) {
-        dmg = Math.round(dmg * 2.0);
-        window.soundManager.playDing();
-        if (this.world.spawnCritParticles) {
-          this.world.spawnCritParticles(closestBot.position);
+      const isMace = held && (held.id === 'mace' || held.weaponType === 'mace');
+
+      if (isMace) {
+        // Mace smash mechanic: each block of height / fall distance adds +3 crushing damage!
+        const heightDiff = Math.max(0, this.position.y - closestBot.position.y);
+        const fallDist = Math.max(0, (this.peakAirborneY || this.position.y) - this.position.y);
+        const effectiveHeight = Math.max(heightDiff, fallDist);
+        const maceBonus = Math.floor(effectiveHeight) * 3;
+        dmg = (held.damage || 6) + maceBonus + sharpnessBonus;
+
+        if (effectiveHeight >= 1.0) {
+          // Smash attack: cancel downward velocity and nullify fall damage!
+          this.velocity.y = 0;
+          this.peakAirborneY = this.position.y;
+
+          if (window.soundManager && typeof window.soundManager.playHeavySmash === 'function') {
+            window.soundManager.playHeavySmash();
+          } else {
+            window.soundManager.playDing();
+          }
+
+          if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
+            window.WeaponModelBuilder.spawnSmashShockwave(this.world, closestBot.position);
+          }
+
+          if (window.game && typeof window.game.addChatMessage === 'function') {
+            window.game.addChatMessage(`§6★ [重锤粉碎重击] 居高临下！落差+${effectiveHeight.toFixed(1)}格 额外+${maceBonus}伤害！造成了 ${dmg} 点重创！`);
+          }
+        } else {
+          window.soundManager.playHit();
         }
       } else {
-        window.soundManager.playHit();
+        // Jump-Crit: attacking while falling downward deals 2.0x (double) damage!
+        const isCrit = (this.velocity.y < -0.3 && !this.onGround);
+        if (isCrit) {
+          dmg = Math.round(dmg * 2.0);
+          window.soundManager.playDing();
+          if (this.world.spawnCritParticles) {
+            this.world.spawnCritParticles(closestBot.position);
+          }
+        } else {
+          window.soundManager.playHit();
+        }
       }
 
       // Spawn sharp metallic hit sparks
       if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnHitSparks === 'function') {
         const sparkColor = (held && held.id === 'sword_diamond') ? 0x00f5ff :
+                           (held && (held.id === 'mace' || held.weaponType === 'mace')) ? 0x38bdf8 :
                            (held && held.id === 'sword_iron') ? 0xffffff :
                            (held && held.id === 'sword_stone') ? 0xcbd5e1 : 0xfde68a;
         window.WeaponModelBuilder.spawnHitSparks(this.world, closestBot.position, sparkColor);
@@ -677,12 +721,13 @@ class Player {
     const currentItem = this.hotbar[this.selectedSlot];
     if (!currentItem) return;
 
-    // 2. Usable Items (Golden Apple, Fireball, Ender Pearl, Enchanted Apple, Potions)
+    // 2. Usable Items (Golden Apple, Fireball, Ender Pearl, Enchanted Apple, Potions, Wind Charge)
     const isPotion = currentItem.type === 'potion' || (currentItem.id && currentItem.id.startsWith('potion_'));
     const isGapple = currentItem.id === 'golden_apple';
     const isEgapple = currentItem.id === 'enchanted_golden_apple';
     const isFireball = currentItem.id === 'fireball';
     const isEnderPearl = currentItem.id === 'ender_pearl';
+    const isWindCharge = currentItem.id === 'wind_charge' || currentItem.projectileType === 'wind_charge';
 
     if (isPotion) {
       this.drinkPotion(currentItem, 'hotbar', this.selectedSlot);
@@ -717,6 +762,10 @@ class Player {
     } else if (isEnderPearl) {
       this.consumeHeldItem();
       this.throwEnderPearl(origin, dir);
+      return;
+    } else if (isWindCharge) {
+      this.consumeHeldItem();
+      this.shootWindCharge(origin, dir);
       return;
     }
 
@@ -1046,6 +1095,115 @@ class Player {
     requestAnimationFrame(animatePearl);
   }
 
+  shootWindCharge(origin, dir) {
+    if (window.soundManager && typeof window.soundManager.playWindBurst === 'function') {
+      window.soundManager.playWindBurst();
+    } else if (window.soundManager && typeof window.soundManager.playSwing === 'function') {
+      window.soundManager.playSwing();
+    }
+
+    const chargeMesh = (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.createWindCharge === 'function') ?
+      window.WeaponModelBuilder.createWindCharge({ isProjectile: true }) :
+      new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+
+    chargeMesh.position.copy(origin).addScaledVector(dir, 0.6);
+    this.scene.add(chargeMesh);
+
+    const speed = 28.0;
+    const velocity = dir.clone().multiplyScalar(speed);
+    const spawnTime = performance.now();
+
+    const animateWindCharge = () => {
+      if (this.isDead) {
+        this.scene.remove(chargeMesh);
+        return;
+      }
+
+      const now = performance.now();
+      const dt = 0.016;
+
+      chargeMesh.rotation.x += 16.0 * dt;
+      chargeMesh.rotation.y += 20.0 * dt;
+      chargeMesh.position.addScaledVector(velocity, dt);
+
+      // Check collision with blocks or Bot
+      const bx = Math.round(chargeMesh.position.x);
+      const by = Math.round(chargeMesh.position.y);
+      const bz = Math.round(chargeMesh.position.z);
+
+      const block = this.world.getBlock(bx, by, bz);
+      let hitTarget = false;
+
+      const botList = (window.game && window.game.bots) ? window.game.bots : (window.bot ? [window.bot] : []);
+      for (const b of botList) {
+        if (!b || b.isDead || b.team === 'red') continue;
+        if (chargeMesh.position.distanceTo(b.position) < 1.6) {
+          hitTarget = true;
+          break;
+        }
+      }
+
+      if (block || hitTarget || (now - spawnTime > 3000)) {
+        const burstPos = chargeMesh.position.clone();
+        this.scene.remove(chargeMesh);
+
+        if (window.soundManager && typeof window.soundManager.playWindBurst === 'function') {
+          window.soundManager.playWindBurst();
+        }
+
+        if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnWindBurstParticles === 'function') {
+          window.WeaponModelBuilder.spawnWindBurstParticles(this.world, burstPos);
+        }
+
+        // 1. Player boost if within explosion radius (Wind Burst launch)
+        const dPlayer = this.position.distanceTo(burstPos);
+        if (dPlayer < 3.8) {
+          // Strong upward boost: catapults player 10-12 blocks into the air!
+          this.velocity.y = Math.max(this.velocity.y, 14.5);
+          this.onGround = false;
+          this.peakAirborneY = this.position.y;
+
+          // Push horizontally away from burst
+          const pushH = new THREE.Vector3(
+            this.position.x - burstPos.x,
+            0,
+            this.position.z - burstPos.z
+          );
+          if (pushH.lengthSq() > 0.04) {
+            pushH.normalize();
+            this.velocity.x += pushH.x * 6.5;
+            this.velocity.z += pushH.z * 6.5;
+          }
+          if (window.game && typeof window.game.addChatMessage === 'function') {
+            window.game.addChatMessage('§b💨 [风弹冲天] 气流爆破将你推向高空！');
+          }
+        }
+
+        // 2. Knockback and damage nearby bots
+        for (const b of botList) {
+          if (!b || b.isDead || b.team === 'red') continue;
+          const dBot = b.position.distanceTo(burstPos);
+          if (dBot < 4.0) {
+            const botPush = new THREE.Vector3().subVectors(b.position, burstPos);
+            botPush.y = 0;
+            if (botPush.lengthSq() > 0.01) botPush.normalize();
+            else botPush.set(dir.x, 0, dir.z).normalize();
+
+            b.takeDamage(4, botPush, '玩家的风弹');
+            b.velocity.y = Math.max(b.velocity.y || 0, 9.5);
+            b.velocity.x += botPush.x * 7.0;
+            b.velocity.z += botPush.z * 7.0;
+          }
+        }
+        return;
+      }
+
+      requestAnimationFrame(animateWindCharge);
+    };
+
+    requestAnimationFrame(animateWindCharge);
+  }
+
   spawnEnderTeleportParticles(pos) {
     const pGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
     const pMat = new THREE.MeshBasicMaterial({ color: 0x9b59b6 });
@@ -1349,7 +1507,7 @@ class Player {
     }
 
     // 2. Try to stack with existing
-    const isStackable = (newItem.type === 'block' || newItem.type === 'arrow' || (newItem.id && newItem.id.startsWith('arrow')) || newItem.type === 'potion' || newItem.id === 'golden_apple');
+    const isStackable = (newItem.type === 'block' || newItem.type === 'arrow' || (newItem.id && newItem.id.startsWith('arrow')) || newItem.type === 'potion' || newItem.id === 'golden_apple' || newItem.id === 'wind_charge' || newItem.projectileType === 'wind_charge');
     if (isStackable) {
       for (let i = 0; i < 9; i++) {
         const slot = this.hotbar[i];
@@ -1720,6 +1878,7 @@ class Player {
     const prevY = this.position.y;
     this.position.y += this.velocity.y * dt;
     this.onGround = false;
+    this.peakAirborneY = Math.max(this.peakAirborneY || this.position.y, this.position.y);
 
     const minBx = Math.floor(this.position.x - halfW + 0.5);
     const maxBx = Math.floor(this.position.x + halfW + 0.5);
@@ -1741,6 +1900,7 @@ class Player {
                 this.position.y = topY;
                 this.velocity.y = 0;
                 this.onGround = true;
+                this.peakAirborneY = this.position.y;
                 break;
               }
             }
@@ -2631,7 +2791,7 @@ class Player {
       const targetLen = (location === 'hotbar') ? 27 : 9;
 
       let moved = false;
-      const isStackable = (currentItem.type === 'block' || currentItem.type === 'arrow' || (currentItem.id && currentItem.id.startsWith('arrow')) || currentItem.type === 'potion' || currentItem.id === 'golden_apple');
+      const isStackable = (currentItem.type === 'block' || currentItem.type === 'arrow' || (currentItem.id && currentItem.id.startsWith('arrow')) || currentItem.type === 'potion' || currentItem.id === 'golden_apple' || currentItem.id === 'wind_charge' || currentItem.projectileType === 'wind_charge');
       if (isStackable) {
         for (let j = 0; j < targetLen; j++) {
           const dest = targetList[j];
@@ -2690,7 +2850,7 @@ class Player {
       const sourceItem = sourceList[selIdx];
 
       const isStackable = (sourceItem && currentItem && sourceItem.id === currentItem.id &&
-        (sourceItem.type === 'block' || sourceItem.type === 'arrow' || (sourceItem.id && sourceItem.id.startsWith('arrow')) || sourceItem.type === 'potion' || sourceItem.id === 'golden_apple'));
+        (sourceItem.type === 'block' || sourceItem.type === 'arrow' || (sourceItem.id && sourceItem.id.startsWith('arrow')) || sourceItem.type === 'potion' || sourceItem.id === 'golden_apple' || sourceItem.id === 'wind_charge' || sourceItem.projectileType === 'wind_charge'));
 
       if (isStackable) {
         currentItem.count = (currentItem.count || 1) + (sourceItem.count || 1);
@@ -2765,7 +2925,7 @@ class Player {
 
     const merged = [];
     for (const item of allItems) {
-      const isStackable = (item.type === 'block' || item.type === 'arrow' || (item.id && item.id.startsWith('arrow')) || item.type === 'potion' || item.id === 'golden_apple');
+      const isStackable = (item.type === 'block' || item.type === 'arrow' || (item.id && item.id.startsWith('arrow')) || item.type === 'potion' || item.id === 'golden_apple' || item.id === 'wind_charge' || item.projectileType === 'wind_charge');
       if (isStackable) {
         const existing = merged.find(m => m.id === item.id);
         if (existing) {

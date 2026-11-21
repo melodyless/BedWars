@@ -527,6 +527,118 @@ class SoundManager {
     noise.start(t);
   }
 
+  // 14b. Wind Charge Burst: Breezy airy pop & shockwave gust
+  playWindBurst() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const dest = this.getDest();
+    if (!dest) return;
+
+    // Airy resonant swoosh
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(360, t);
+    osc.frequency.exponentialRampToValueAtTime(110, t + 0.32);
+
+    oscGain.gain.setValueAtTime(0.38, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+
+    osc.connect(oscGain);
+    oscGain.connect(dest);
+    osc.start(t);
+    osc.stop(t + 0.35);
+
+    // Wind puff noise
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.35);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.8);
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(800, t);
+    filter.frequency.exponentialRampToValueAtTime(220, t + 0.32);
+    filter.Q.value = 1.2;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.42, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(dest);
+    noise.start(t);
+  }
+
+  // 14c. Heavy Mace Smash Attack: Deep crushing anvil hammer thud
+  playHeavySmash() {
+    if (!this.ctx) return;
+    this.resume();
+    const t = this.ctx.currentTime;
+    const dest = this.getDest();
+    if (!dest) return;
+
+    // Deep sub drop
+    const sub = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(160, t);
+    sub.frequency.exponentialRampToValueAtTime(32, t + 0.45);
+
+    subGain.gain.setValueAtTime(0.65, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+
+    sub.connect(subGain);
+    subGain.connect(dest);
+    sub.start(t);
+    sub.stop(t + 0.5);
+
+    // Metallic heavy anvil strike clang
+    const bell = this.ctx.createOscillator();
+    const bellGain = this.ctx.createGain();
+    bell.type = 'sawtooth';
+    bell.frequency.setValueAtTime(420, t);
+    bell.frequency.exponentialRampToValueAtTime(180, t + 0.35);
+
+    bellGain.gain.setValueAtTime(0.35, t);
+    bellGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+    bell.connect(bellGain);
+    bellGain.connect(dest);
+    bell.start(t);
+    bell.stop(t + 0.4);
+
+    // Stone shatter crunch noise
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.4);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(650, t);
+    filter.frequency.exponentialRampToValueAtTime(60, t + 0.38);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.48, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(dest);
+    noise.start(t);
+  }
+
   // 15. Victory fanfare: Beautiful triumphant chord
   playVictory() {
     if (!this.ctx) return;

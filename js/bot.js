@@ -311,7 +311,7 @@ class Bot {
     ctx.font = 'bold 30px "Minecraft", "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
 
-    const swordName = this.weaponTier === 'diamond' ? '钻剑' : (this.weaponTier === 'iron' ? '铁剑' : (this.weaponTier === 'stone' ? '石剑' : '木剑'));
+    const swordName = this.weaponTier === 'mace' ? '重锤' : (this.weaponTier === 'diamond' ? '钻剑' : (this.weaponTier === 'iron' ? '铁剑' : (this.weaponTier === 'stone' ? '石剑' : '木剑')));
     const armorName = this.armorTier === 'diamond' ? '钻甲' : (this.armorTier === 'iron' ? '铁甲' : (this.armorTier === 'chain' ? '链甲' : '皮甲'));
     let roleTag = '';
     if (this.isTeammate) {
@@ -470,7 +470,9 @@ class Bot {
     if (this.teamTrimMat) this.teamTrimMat.color.setHex(myTeam.colorHex);
 
     // 2. Weapon 3D Model & Damage
-    if (this.weaponTier === 'stone') {
+    if (this.weaponTier === 'mace') {
+      this.damage = 6;
+    } else if (this.weaponTier === 'stone') {
       this.damage = 5;
     } else if (this.weaponTier === 'iron') {
       this.damage = 6;
@@ -485,7 +487,9 @@ class Bot {
         this.swordMesh.parent.remove(this.swordMesh);
       }
       const isEnchanted = !!(window.game && window.game.teamUpgrades && window.game.teamUpgrades[this.team] && window.game.teamUpgrades[this.team].sharpness > 0);
-      if (window.WeaponModelBuilder) {
+      if (this.weaponTier === 'mace') {
+        this.swordMesh = window.WeaponModelBuilder ? window.WeaponModelBuilder.createMace({ isBot: true }) : null;
+      } else if (window.WeaponModelBuilder) {
         this.swordMesh = window.WeaponModelBuilder.createSword(this.weaponTier, { isBot: true, enchanted: isEnchanted });
       } else {
         const swordGeo = new THREE.BoxGeometry(0.06, 0.5, 0.03);
@@ -1193,9 +1197,49 @@ class Bot {
     }
   }
 
+  // Check direct line of sight through voxel world (solid walls/floors block line of sight)
+  hasLineOfSight(targetPos) {
+    if (!this.world || !targetPos) return true;
+    const eyeY = this.position.y + 1.5;
+    const targetY = (targetPos.y !== undefined) ? (targetPos.y + 1.2) : eyeY;
+    const dx = targetPos.x - this.position.x;
+    const dy = targetY - eyeY;
+    const dz = targetPos.z - this.position.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (dist <= 1.5) return true; // Close melee proximity awareness
+
+    const steps = Math.ceil(dist * 2.5); // 0.4m per step sampling
+    const stepX = dx / steps;
+    const stepY = dy / steps;
+    const stepZ = dz / steps;
+
+    // Start 0.4m ahead of bot eye, stop 0.5m before target
+    const startStep = Math.min(2, Math.floor(steps * 0.08));
+    const endStep = Math.max(startStep, steps - Math.floor(steps * 0.12));
+
+    for (let i = startStep; i <= endStep; i++) {
+      const bx = Math.round(this.position.x + stepX * i);
+      const by = Math.round(eyeY + stepY * i);
+      const bz = Math.round(this.position.z + stepZ * i);
+      const b = this.world.getBlock(bx, by, bz);
+      if (b && b.type) {
+        // Transparent glass or open chest does not block vision
+        if (b.type.includes('GLASS') || b.type === 'CHEST') continue;
+        return false;
+      }
+    }
+    return true;
+  }
+
   // Check if bot can detect/spot player (Invisible player is ONLY spotted if holding a weapon/sword/bow or recently attacked!)
+  // In addition: solid walls block vision unless within close melee hearing distance (1.8m)
   canDetectPlayer(player) {
     if (!player || player.isDead) return false;
+    const dPlayer = this.position.distanceTo(player.position);
+    if (dPlayer > 1.8 && !this.hasLineOfSight(player.position)) {
+      return false; // Cannot see player through solid walls!
+    }
+
     const isPlayerInvis = player.isInvisible || (player.hasEffect && player.hasEffect('invisibility'));
     if (!isPlayerInvis) return true;
 
@@ -1234,7 +1278,7 @@ class Bot {
     return 1.0;
   }
 
-  // Find optimal target: nearest hostile player or enemy bot
+  // Find optimal target: nearest hostile player or enemy bot (cannot see through solid walls)
   findTarget(player, allBots) {
     let closestTarget = null;
     let closestDist = 999;
@@ -1250,11 +1294,12 @@ class Bot {
       }
     }
 
-    // Check other bots
+    // Check other bots (solid walls block line of sight unless within 1.8m close proximity)
     for (const b of allBots) {
       if (b !== this && !b.isDead && b.team !== this.team) {
         const dBot = this.position.distanceTo(b.position);
         if (dBot < closestDist) {
+          if (dBot > 1.8 && !this.hasLineOfSight(b.position)) continue;
           closestDist = dBot;
           closestTarget = { type: 'bot', entity: b, pos: b.position };
         }
@@ -2546,6 +2591,13 @@ class Bot {
         const targetPos = target.pos;
         const curDist = this.position.distanceTo(targetPos);
 
+        // Target moved behind solid wall / obstacle: bot loses line of sight and re-evaluates objective
+        if (curDist > 2.2 && !this.hasLineOfSight(targetPos)) {
+          this.currentTarget = null;
+          this.chooseNextObjective();
+          break;
+        }
+
         // 1. Emergency Golden Apple (Heal when below 13 HP)
         if (this.health <= 13 && this.goldenApples > 0 && this.healCooldown <= 0) {
           this.eatGoldenApple();
@@ -2634,13 +2686,30 @@ class Bot {
           this.rightArm.rotation.x = -Math.PI / 2;
           setTimeout(() => { this.rightArm.rotation.x = 0; }, 110);
 
-          // Check if landing a Critical Hit (falling with downward velocity)
+          // Check if landing a Critical Hit or Mace Smash
           const isCrit = (this.velocity.y < -0.2);
           let finalDmg = this.damage;
           const teamSharp = (window.game && window.game.teamUpgrades && window.game.teamUpgrades[this.team]) ? window.game.teamUpgrades[this.team].sharpness : 0;
           finalDmg += teamSharp;
 
-          if (isCrit) {
+          const isMace = (this.weaponTier === 'mace' || this.hasMace);
+          if (isMace) {
+            const heightAdv = Math.max(0, this.position.y - targetPos.y);
+            const maceBonus = Math.floor(heightAdv) * 3;
+            finalDmg = 6 + maceBonus + teamSharp;
+            if (heightAdv >= 1.0) {
+              if (window.soundManager && typeof window.soundManager.playHeavySmash === 'function') {
+                window.soundManager.playHeavySmash();
+              } else {
+                window.soundManager.playDing();
+              }
+              if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
+                window.WeaponModelBuilder.spawnSmashShockwave(this.world, targetPos);
+              }
+            } else {
+              window.soundManager.playHit();
+            }
+          } else if (isCrit) {
             finalDmg = Math.round(finalDmg * 2.0);
             window.soundManager.playDing();
             if (this.world.spawnCritParticles) {

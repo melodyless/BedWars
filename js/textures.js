@@ -809,6 +809,12 @@ const TextureGenerator = {
         ctx.closePath();
         ctx.fill();
         break;
+      case 'mace':
+        this.drawPixelMace(ctx);
+        break;
+      case 'wind_charge':
+        this.drawPixelWindCharge(ctx);
+        break;
       default:
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(6, 6, 20, 20);
@@ -818,6 +824,97 @@ const TextureGenerator = {
 
   getItemIcon(type) {
     return this.generateItemDataURL(type);
+  },
+
+  drawPixelMace(ctx) {
+    // Authentic Minecraft 1.21 Heavy Mace Icon
+    // Breeze rod handle (diagonal from bottom-left)
+    const handleCoords = [
+      [5, 27], [6, 26], [7, 25],
+      [8, 24], [9, 23], [10, 22],
+      [11, 21], [12, 20], [13, 19]
+    ];
+    ctx.fillStyle = '#1e293b';
+    handleCoords.forEach(([x, y]) => {
+      ctx.fillRect(x - 1, y, 3, 1);
+      ctx.fillRect(x, y - 1, 1, 3);
+    });
+    ctx.fillStyle = '#d97706'; // Breeze rod golden-orange core
+    handleCoords.forEach(([x, y]) => {
+      ctx.fillRect(x, y, 1, 1);
+    });
+    // Breeze rod swirls
+    ctx.fillStyle = '#fef08a';
+    ctx.fillRect(7, 25, 1, 1);
+    ctx.fillRect(11, 21, 1, 1);
+
+    // Massive Heavy Mace Head (Top-right)
+    // Dark outline
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(13, 6, 14, 14);
+
+    // Heavy slate / dark metal head
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(14, 7, 12, 12);
+
+    // Stone / metal highlights
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(15, 8, 10, 10);
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(15, 8, 9, 2);
+    ctx.fillRect(15, 8, 2, 9);
+
+    // Heavy flange corners
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(13, 6, 2, 2);
+    ctx.fillRect(25, 6, 2, 2);
+    ctx.fillRect(13, 18, 2, 2);
+    ctx.fillRect(25, 18, 2, 2);
+
+    // Glowing Breeze Core in center of mace
+    ctx.fillStyle = '#0284c7';
+    ctx.fillRect(18, 11, 4, 4);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(19, 12, 2, 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(19, 12, 1, 1);
+  },
+
+  drawPixelWindCharge(ctx) {
+    // Swirling Wind Charge Cyclone Orb
+    // Outer glow
+    ctx.fillStyle = 'rgba(186, 230, 253, 0.4)';
+    ctx.beginPath();
+    ctx.arc(16, 16, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wind burst vortex rings
+    ctx.fillStyle = '#bae6fd';
+    ctx.beginPath();
+    ctx.arc(16, 16, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Swirling spiral arms
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(16, 16, 6, 0.4, 2.5);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(16, 16, 6, 3.5, 5.7);
+    ctx.stroke();
+
+    // Dense glowing cyan core
+    ctx.fillStyle = '#0284c7';
+    ctx.beginPath();
+    ctx.arc(16, 16, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(15, 15, 1.8, 0, Math.PI * 2);
+    ctx.fill();
   },
 
   drawPixelSword(ctx, type) {

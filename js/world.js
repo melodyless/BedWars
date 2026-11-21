@@ -429,7 +429,8 @@ class VoxelWorld {
       { id: 'sword_wooden', name: '战术木剑', type: 'weapon', count: 1, damage: 4 },
       { id: 'sword_stone', name: '锋利石剑', type: 'weapon', count: 1, damage: 5 },
       { id: 'sword_iron', name: '精炼铁剑', type: 'weapon', count: 1, damage: 6 },
-      { id: 'sword_diamond', name: '锋利钻石神剑', type: 'weapon', count: 1, damage: 7 }
+      { id: 'sword_diamond', name: '锋利钻石神剑', type: 'weapon', count: 1, damage: 7 },
+      { id: 'mace', name: '重锤 (高空砸下每格+3伤)', type: 'weapon', weaponType: 'mace', count: 1, damage: 6 }
     ];
 
     const armors = [
@@ -460,7 +461,8 @@ class VoxelWorld {
 
     const throwables = [
       { id: 'fireball', name: '烈焰弹', type: 'utility', count: 1 + Math.floor(Math.random() * 2) },
-      { id: 'ender_pearl', name: '末影珍珠', type: 'utility', count: 1 + (Math.random() < 0.4 ? 1 : 0) }
+      { id: 'ender_pearl', name: '末影珍珠', type: 'utility', count: 1 + (Math.random() < 0.4 ? 1 : 0) },
+      { id: 'wind_charge', name: '风弹 x8', type: 'utility', projectileType: 'wind_charge', count: 8 }
     ];
 
     const blocks = [
@@ -593,7 +595,9 @@ class VoxelWorld {
       { id: 'potion_regen', name: '神圣恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, count: 1 },
       { id: 'potion_invis', name: '隐形药水 (30秒)', type: 'potion', potionType: 'invis', duration: 30, count: 1 },
       { id: 'pickaxe_diamond', name: '钻石镐', type: 'tool', count: 1 },
-      { id: 'golden_apple', name: '金苹果 x4', type: 'utility', count: 4 }
+      { id: 'golden_apple', name: '金苹果 x4', type: 'utility', count: 4 },
+      { id: 'mace', name: '重锤 (高空砸下每格+3伤)', type: 'weapon', weaponType: 'mace', count: 1, damage: 6 },
+      { id: 'wind_charge', name: '风弹 x8', type: 'utility', projectileType: 'wind_charge', count: 8 }
     ];
 
     const shuffledBonus = [...bonusPool].sort(() => Math.random() - 0.5);

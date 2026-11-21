@@ -22,6 +22,7 @@ class ShopManager {
         { id: 'sword_stone', name: '石剑', type: 'weapon', damage: 5, currency: 'iron', price: 10 },
         { id: 'sword_iron', name: '铁剑', type: 'weapon', damage: 6, currency: 'gold', price: 7 },
         { id: 'sword_diamond', name: '钻石剑', type: 'weapon', damage: 7, currency: 'emerald', price: 4 },
+        { id: 'mace', name: '重锤 (高空砸下每格+3伤)', type: 'weapon', weaponType: 'mace', damage: 6, currency: 'emerald', price: 10, desc: '下落砸击时每高1格额外造成3点粉碎伤害，且下落砸中时完全免疫摔落伤害！' },
         { id: 'bow_normal', name: '木弓', type: 'bow', bowType: 'normal', currency: 'gold', price: 12 },
         { id: 'bow_power', name: '力量弓 (增伤)', type: 'bow', bowType: 'power', currency: 'gold', price: 20 },
         { id: 'bow_punch', name: '击退弓 (强击退)', type: 'bow', bowType: 'punch', currency: 'emerald', price: 6 },
@@ -46,6 +47,7 @@ class ShopManager {
         { id: 'potion_regen', name: '恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, currency: 'gold', price: 3, desc: '立即回血6点，随后持续回血30秒' }
       ],
       utilities: [
+        { id: 'wind_charge', name: '风弹 x8', type: 'utility', projectileType: 'wind_charge', count: 8, currency: 'gold', price: 4, desc: '右键投掷冲飞自己腾空或击退敌人，配合重锤完成从天而降的粉碎重击！' },
         { id: 'golden_apple', name: '金苹果', type: 'utility', count: 1, currency: 'gold', price: 3 },
         { id: 'enchanted_golden_apple', name: '附魔金苹果', type: 'utility', count: 1, currency: 'emerald', price: 3 },
         { id: 'potion_speed', name: '迅捷药水 II', type: 'potion', potionType: 'speed', duration: 45, currency: 'emerald', price: 1 },
@@ -144,7 +146,9 @@ class ShopManager {
     sprite.position.set(0, 2.0, 0);
     group.add(sprite);
 
-    this.scene.add(group);
+    if (this.scene) {
+      this.scene.add(group);
+    }
     this.villagers.push({ x, y, z, group, sprite });
   }
 

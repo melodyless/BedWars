@@ -588,12 +588,13 @@ class TouchControls {
                   currentItem.id === 'golden_apple' ||
                   currentItem.id === 'enchanted_golden_apple' ||
                   currentItem.id === 'fireball' ||
-                  currentItem.id === 'ender_pearl'
+                  currentItem.id === 'ender_pearl' ||
+                  currentItem.id === 'wind_charge'
                 ))
               );
 
               if (isUsable) {
-                // Long press on screen directly uses potion/golden apple/pearl!
+                // Long press on screen directly uses potion/golden apple/pearl/wind charge!
                 self.player.handleRightClick();
               } else if (currentItem && currentItem.type === 'bow') {
                 self.handleUseStart();
@@ -665,7 +666,8 @@ class TouchControls {
                   currentItem.id === 'golden_apple' ||
                   currentItem.id === 'enchanted_golden_apple' ||
                   currentItem.id === 'fireball' ||
-                  currentItem.id === 'ender_pearl'
+                  currentItem.id === 'ender_pearl' ||
+                  currentItem.id === 'wind_charge'
                 ))
               );
 
@@ -716,7 +718,8 @@ class TouchControls {
                 held.id === 'golden_apple' ||
                 held.id === 'enchanted_golden_apple' ||
                 held.id === 'fireball' ||
-                held.id === 'ender_pearl'
+                held.id === 'ender_pearl' ||
+                held.id === 'wind_charge'
               ))
             );
             if (isUsable) {
@@ -773,7 +776,8 @@ class TouchControls {
         currentItem.id === 'golden_apple' ||
         currentItem.id === 'enchanted_golden_apple' ||
         currentItem.id === 'fireball' ||
-        currentItem.id === 'ender_pearl'
+        currentItem.id === 'ender_pearl' ||
+        currentItem.id === 'wind_charge'
       ))
     );
 
