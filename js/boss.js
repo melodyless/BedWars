@@ -287,16 +287,9 @@
       // Keep wool stocked so boss can always bridge across void
       if (this.woolCount < 32) this.woolCount = 64;
 
-      // Ender Teleport Void Recovery: if boss is knocked into void (y < -10)
-      if (this.position.y < -10) {
-        this.position.set(0, 9.2, 0);
-        this.velocity.set(0, 0, 0);
-        if (window.soundManager && typeof window.soundManager.playDing === 'function') {
-          window.soundManager.playDing(1200);
-        }
-        if (window.game) {
-          window.game.addChatMessage('§5★ 【末地领主】触发末影折跃，重返中央神殿！');
-        }
+      // Void Fall Check: if boss falls into void (y < -12), it dies legitimately!
+      if (this.position.y < -12 && !this.isDead) {
+        this.die('void');
         return;
       }
 
@@ -377,12 +370,24 @@
       this.group.visible = false;
       this.updateBossBar();
 
+      if (this.scene && this.group) {
+        this.scene.remove(this.group);
+      }
+
       if (window.game) {
-        window.game.addChatMessage(`§d★ 强大的【末地领主】被 §f${killer} §d成功讨伐击杀！掉落了终极宝藏！`);
+        if (cause === 'void') {
+          window.game.addChatMessage('§d★ 【末地领主】坠入无尽虚空陨落！将在 2 分钟后浴火重生！');
+        } else {
+          window.game.addChatMessage(`§d★ 强大的【末地领主】被 §f${killer} §d成功讨伐击杀！掉落了终极宝藏！将在 2 分钟后浴火重生！`);
+        }
         // Remove from bots list
         if (window.game.bots) {
           const idx = window.game.bots.indexOf(this);
           if (idx !== -1) window.game.bots.splice(idx, 1);
+        }
+        // Notify game manager to start respawn countdown
+        if (typeof window.game.onEndBossDied === 'function') {
+          window.game.onEndBossDied();
         }
       }
 
@@ -390,14 +395,18 @@
       if (window.soundManager && typeof window.soundManager.playDing === 'function') {
         window.soundManager.playDing(1600);
       }
+      const dropPos = (cause === 'void') ? new THREE.Vector3(0, 9.2, 0) : this.position;
       if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
-        window.WeaponModelBuilder.spawnSmashShockwave(this.world, this.position);
+        window.WeaponModelBuilder.spawnSmashShockwave(this.world, dropPos);
       }
 
-      // Drop Epic Loot: 10 Emeralds, 8 Wind Charges, 3 Golden Apples!
+      // Drop Epic Loot: 10 Emeralds (if killed by void, drop safely at center platform)
       if (this.world && typeof this.world.spawnItemDrop === 'function') {
+        const dropX = (cause === 'void') ? 0 : this.position.x;
+        const dropY = (cause === 'void') ? 9.2 : Math.max(1, this.position.y + 0.5);
+        const dropZ = (cause === 'void') ? 0 : this.position.z;
         for (let i = 0; i < 10; i++) {
-          this.world.spawnItemDrop(this.position.x + (Math.random() - 0.5) * 1.5, this.position.y + 0.5, this.position.z + (Math.random() - 0.5) * 1.5, 'emerald');
+          this.world.spawnItemDrop(dropX + (Math.random() - 0.5) * 2.0, dropY, dropZ + (Math.random() - 0.5) * 2.0, 'emerald');
         }
       }
     }

@@ -269,6 +269,8 @@ class BedwarsGame {
     this.bots = [];
     this.endBoss = null;
     this.endBossSpawned = false;
+    this.endBossIsRespawning = false;
+    this.endBossRespawnTimer = 0;
     const bossBar = document.getElementById('boss-bar-container');
     if (bossBar) bossBar.style.display = 'none';
 
@@ -615,9 +617,11 @@ class BedwarsGame {
     }
   }
 
-  spawnEndBoss() {
-    if (this.endBossSpawned) return;
+  spawnEndBoss(isRespawn = false) {
+    if (this.endBoss && !this.endBoss.isDead) return;
     this.endBossSpawned = true;
+    this.endBossIsRespawning = false;
+    this.endBossRespawnTimer = 0;
 
     // End Map center is x=0, z=0. The central monolith reaches y=8.
     let spawnY = 9.2;
@@ -633,6 +637,10 @@ class BedwarsGame {
     }
 
     if (window.EndBoss) {
+      if (this.endBoss && this.endBoss.group && this.scene) {
+        this.scene.remove(this.endBoss.group);
+      }
+
       this.endBoss = new window.EndBoss(this.scene, this.world, {
         spawnPos: { x: 0, y: spawnY, z: 0 }
       });
@@ -650,10 +658,21 @@ class BedwarsGame {
         window.WeaponModelBuilder.spawnSmashShockwave(this.world, new THREE.Vector3(0, spawnY, 0));
       }
 
-      this.showBigBanner('§5★ 末地领主降临 ★', '末地核心领主苏醒，正在摧毁一切！');
-      this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 100 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
+      if (isRespawn) {
+        this.showBigBanner('§5★ 末地领主浴火复活！ ★', '末地核心领主重构神躯，再次降临中央遗迹！');
+        this.addChatMessage('§5★ 警告：【末地领主】已成功复活！它携 100 点生命值与 10 点攻击力再次向所有玩家与床位宣战！');
+      } else {
+        this.showBigBanner('§5★ 末地领主降临 ★', '末地核心领主苏醒，正在摧毁一切！');
+        this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 100 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
+      }
       this.updateScoreboard();
     }
+  }
+
+  onEndBossDied() {
+    this.endBossIsRespawning = true;
+    this.endBossRespawnTimer = 120; // 2 minutes (120s) respawn cooldown
+    this.updateScoreboard();
   }
 
   bindUIEvents() {
@@ -832,14 +851,16 @@ class BedwarsGame {
           startGame();
         }
       }
-      // 'O' key shortcut to immediately summon End Boss for testing/demo
-      if (this.isGameRunning && (e.key === 'o' || e.key === 'O') && !this.endBossSpawned) {
-        this.spawnEndBoss();
+      // 'O' key shortcut to immediately summon / respawn End Boss for testing/demo
+      if (this.isGameRunning && (e.key === 'o' || e.key === 'O')) {
+        if (!this.endBoss || this.endBoss.isDead || this.endBossIsRespawning || !this.endBossSpawned) {
+          this.spawnEndBoss(this.endBossSpawned);
+        }
       }
     });
 
-    window.spawnEndBoss = () => {
-      this.spawnEndBoss();
+    window.spawnEndBoss = (isRespawn = false) => {
+      this.spawnEndBoss(isRespawn);
     };
 
     if (resumeOverlay) {
@@ -1296,13 +1317,22 @@ class BedwarsGame {
           const s = String(remSec % 60).padStart(2, '0');
           bossStatusHtml = `
             <div style="font-size: 13px; color: #c084fc; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(192, 132, 252, 0.4);">
-              🟣 领主苏醒: <span style="color:#fdf4ff; font-weight:bold;">${m}:${s}</span>
+              🟣 领主初临: <span style="color:#fdf4ff; font-weight:bold;">${m}:${s}</span>
             </div>
           `;
         } else if (this.endBoss && !this.endBoss.isDead) {
           bossStatusHtml = `
             <div style="font-size: 13px; color: #ec4899; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(236, 72, 153, 0.4);">
               👑 末地领主: <span style="color:#f0abfc; font-weight:bold;">${Math.max(0, Math.round(this.endBoss.health))}/100 HP</span>
+            </div>
+          `;
+        } else if (this.endBossIsRespawning) {
+          const remSec = Math.max(0, Math.ceil(this.endBossRespawnTimer));
+          const m = Math.floor(remSec / 60);
+          const s = String(remSec % 60).padStart(2, '0');
+          bossStatusHtml = `
+            <div style="font-size: 13px; color: #c084fc; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(192, 132, 252, 0.4);">
+              🟣 领主复活: <span style="color:#fdf4ff; font-weight:bold;">${m}:${s}</span>
             </div>
           `;
         } else {
@@ -1329,9 +1359,19 @@ class BedwarsGame {
       if (this.isGameRunning) {
         this.matchTime += dt;
 
-        // End Realm Boss awakening: 5 minutes (300 seconds) after match starts
+        // End Realm Boss initial awakening: 5 minutes (300 seconds) after match starts
         if (this.currentMap === 'end' && !this.endBossSpawned && this.matchTime >= 300) {
-          this.spawnEndBoss();
+          this.spawnEndBoss(false);
+        }
+
+        // End Realm Boss Respawn cooldown timer (revives after 2 minutes)
+        if (this.currentMap === 'end' && this.endBossIsRespawning) {
+          this.endBossRespawnTimer -= dt;
+          if (this.endBossRespawnTimer <= 0) {
+            this.endBossRespawnTimer = 0;
+            this.endBossIsRespawning = false;
+            this.spawnEndBoss(true);
+          }
         }
 
         this.diamondTimer = Math.max(0, this.diamondTimer - dt);
