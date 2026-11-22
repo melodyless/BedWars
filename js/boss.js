@@ -47,8 +47,11 @@
         colorStr: '#d946ef',
         colorHex: 0xd946ef,
         prefix: '§5',
-        spawn: new THREE.Vector3(0, 9.0, 0),
-        bed: new THREE.Vector3(0, 9.0, 0)
+        spawn: new THREE.Vector3(0, 9.2, 0),
+        bed: new THREE.Vector3(0, 9.2, 0),
+        gen: new THREE.Vector3(0, 9.2, 0),
+        shop: new THREE.Vector3(0, 9.2, 0),
+        wool: 'PURPLE_WOOL'
       };
 
       // Hide default armor pieces and trims so suit and red tie are completely clear
@@ -278,7 +281,7 @@
         this.currentTarget = target;
         this.stateTimer = 0;
       } else {
-        this.state = 'PATROL';
+        this.state = 'PATROL_MID';
         this.stateTimer = 0;
       }
     }
@@ -319,6 +322,29 @@
           }
           return;
         }
+      }
+
+      // 3. Central Island Patrol
+      if (this.state === 'PATROL_MID' || this.state === 'GATHER' || this.state === 'SHOP' || this.state === 'DEFEND_BED') {
+        if (target && dist < 16.0) {
+          this.state = 'COMBAT';
+          this.currentTarget = target;
+          return;
+        }
+        const targetBed = this.findTargetBed();
+        if (targetBed) {
+          this.state = 'ATTACK_BED';
+          this.stateTimer = 0;
+          return;
+        }
+        if (this.stateTimer > 4.0 || !this.patrolWp) {
+          this.stateTimer = 0;
+          const angle = Math.random() * Math.PI * 2;
+          const r = 2.5 + Math.random() * 4.0;
+          this.patrolWp = { x: Math.cos(angle) * r, z: Math.sin(angle) * r };
+        }
+        this.moveTo(this.patrolWp.x, this.patrolWp.z, this.speed * 0.7);
+        return;
       }
 
       super.runAIStateMachine(dt, player, allBots);

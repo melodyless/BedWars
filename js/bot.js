@@ -2018,6 +2018,10 @@ class Bot {
       }
 
       case 'GATHER': {
+        if (!myTeam || !myTeam.gen) {
+          this.chooseNextObjective(false);
+          break;
+        }
         // Return to base generator to accumulate iron & gold
         const distToGen = Math.hypot(myTeam.gen.x - this.position.x, myTeam.gen.z - this.position.z);
         if (distToGen > 5.0) {
@@ -2048,6 +2052,10 @@ class Bot {
       }
 
       case 'SHOP': {
+        if (!myTeam || !myTeam.shop) {
+          this.chooseNextObjective(true);
+          break;
+        }
         // Walk or bridge back to own Villager shopkeeper
         const distToShop = Math.hypot(myTeam.shop.x - this.position.x, myTeam.shop.z - this.position.z);
         if (distToShop > 4.5) {
@@ -2071,6 +2079,10 @@ class Bot {
       }
 
       case 'DEFEND_BED': {
+        if (!myTeam || !myTeam.bed) {
+          this.chooseNextObjective(false);
+          break;
+        }
         // Walk towards own bed
         const distToBed = Math.hypot(myTeam.bed.x - this.position.x, myTeam.bed.z - this.position.z);
         if (distToBed > 6.0) {
