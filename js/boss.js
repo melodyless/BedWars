@@ -1,7 +1,7 @@
 /**
  * Bedwars End Realm Boss - End Lord (末地领主)
  * Spawns in the center of the End Map after 5 minutes of game time.
- * Stats: 100 HP, 0 Armor, 10 Attack Damage.
+ * Stats: 500 HP, 0 Armor, 10 Attack Damage.
  * Hostile to ALL players and bots, and actively hunts & destroys all team beds!
  * Skin: Authentic custom Minecraft 64x64 Wither Suit Skin.
  */
@@ -25,8 +25,8 @@
       });
 
       this.isBoss = true;
-      this.maxHealth = 100;
-      this.health = 100;
+      this.maxHealth = 500;
+      this.health = 500;
       this.damage = 10;          // 10 attack damage as requested
       this.armorTier = 'none';    // 0 armor (no armor reduction) as requested
       this.weaponTier = 'diamond'; // Diamond blade dealing exactly 10 base damage

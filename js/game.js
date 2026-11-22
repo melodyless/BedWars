@@ -661,10 +661,10 @@ class BedwarsGame {
 
     if (isRespawn) {
       this.showBigBanner('§5★ 末地领主浴火复活！ ★', '末地核心领主重构神躯，再次降临中央遗迹！');
-      this.addChatMessage('§5★ 警告：【末地领主】已成功复活！它携 100 点生命值与 10 点攻击力再次向所有玩家与床位宣战！');
+      this.addChatMessage('§5★ 警告：【末地领主】已成功复活！它携 500 点生命值与 10 点攻击力再次向所有玩家与床位宣战！');
     } else {
       this.showBigBanner('§5★ 末地领主降临 ★', '末地核心领主苏醒，正在摧毁一切！');
-      this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 100 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
+      this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 500 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
     }
     this.updateScoreboard();
   }
@@ -1323,7 +1323,7 @@ class BedwarsGame {
         } else if (this.endBoss && !this.endBoss.isDead) {
           bossStatusHtml = `
             <div style="font-size: 13px; color: #ec4899; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(236, 72, 153, 0.4);">
-              👑 末地领主: <span style="color:#f0abfc; font-weight:bold;">${Math.max(0, Math.round(this.endBoss.health))}/100 HP</span>
+              👑 末地领主: <span style="color:#f0abfc; font-weight:bold;">${Math.max(0, Math.round(this.endBoss.health))}/${this.endBoss.maxHealth || 500} HP</span>
             </div>
           `;
         } else if (this.endBossIsRespawning) {
