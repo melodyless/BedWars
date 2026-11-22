@@ -574,11 +574,11 @@ class Player {
       const isMace = held && (held.id === 'mace' || held.weaponType === 'mace');
 
       if (isMace) {
-        // Mace smash mechanic: each block of height / fall distance adds +3 crushing damage!
+        // Mace smash mechanic: each block of height / fall distance adds +6 crushing damage!
         const heightDiff = Math.max(0, this.position.y - closestBot.position.y);
         const fallDist = Math.max(0, (this.peakAirborneY || this.position.y) - this.position.y);
         const effectiveHeight = Math.max(heightDiff, fallDist);
-        const maceBonus = Math.floor(effectiveHeight) * 3;
+        const maceBonus = Math.floor(effectiveHeight) * 6;
         dmg = (held.damage || 6) + maceBonus + sharpnessBonus;
 
         if (effectiveHeight >= 1.0) {
@@ -1157,9 +1157,9 @@ class Player {
 
         // 1. Player boost if within explosion radius (Wind Burst launch)
         const dPlayer = this.position.distanceTo(burstPos);
-        if (dPlayer < 3.8) {
-          // Strong upward boost: catapults player 10-12 blocks into the air!
-          this.velocity.y = Math.max(this.velocity.y, 14.5);
+        if (dPlayer < 4.2) {
+          // Massive upward boost: launches player high into the air (~14 blocks high with Bedwars physics)
+          this.velocity.y = Math.max(this.velocity.y + 14.0, 27.0);
           this.onGround = false;
           this.peakAirborneY = this.position.y;
 
@@ -1171,11 +1171,11 @@ class Player {
           );
           if (pushH.lengthSq() > 0.04) {
             pushH.normalize();
-            this.velocity.x += pushH.x * 6.5;
-            this.velocity.z += pushH.z * 6.5;
+            this.velocity.x += pushH.x * 7.5;
+            this.velocity.z += pushH.z * 7.5;
           }
           if (window.game && typeof window.game.addChatMessage === 'function') {
-            window.game.addChatMessage('§b💨 [风弹冲天] 气流爆破将你推向高空！');
+            window.game.addChatMessage('§b💨 [风弹冲天] 强劲气流破空爆发，将你弹射冲向高空！');
           }
         }
 
@@ -1183,16 +1183,16 @@ class Player {
         for (const b of botList) {
           if (!b || b.isDead || b.team === 'red') continue;
           const dBot = b.position.distanceTo(burstPos);
-          if (dBot < 4.0) {
+          if (dBot < 4.5) {
             const botPush = new THREE.Vector3().subVectors(b.position, burstPos);
             botPush.y = 0;
             if (botPush.lengthSq() > 0.01) botPush.normalize();
             else botPush.set(dir.x, 0, dir.z).normalize();
 
             b.takeDamage(4, botPush, '玩家的风弹');
-            b.velocity.y = Math.max(b.velocity.y || 0, 9.5);
-            b.velocity.x += botPush.x * 7.0;
-            b.velocity.z += botPush.z * 7.0;
+            b.velocity.y = Math.max((b.velocity.y || 0) + 12.0, 18.0);
+            b.velocity.x += botPush.x * 8.5;
+            b.velocity.z += botPush.z * 8.5;
           }
         }
         return;

@@ -22,7 +22,7 @@ class ShopManager {
         { id: 'sword_stone', name: '石剑', type: 'weapon', damage: 5, currency: 'iron', price: 10 },
         { id: 'sword_iron', name: '铁剑', type: 'weapon', damage: 6, currency: 'gold', price: 7 },
         { id: 'sword_diamond', name: '钻石剑', type: 'weapon', damage: 7, currency: 'emerald', price: 4 },
-        { id: 'mace', name: '重锤 (高空砸下每格+3伤)', type: 'weapon', weaponType: 'mace', damage: 6, currency: 'emerald', price: 10, desc: '下落砸击时每高1格额外造成3点粉碎伤害，且下落砸中时完全免疫摔落伤害！' },
+        { id: 'mace', name: '重锤 (高空砸下每格+6伤)', type: 'weapon', weaponType: 'mace', damage: 6, currency: 'emerald', price: 10, desc: '下落砸击时每高1格额外造成6点粉碎伤害，且下落砸中时完全免疫摔落伤害！' },
         { id: 'bow_normal', name: '木弓', type: 'bow', bowType: 'normal', currency: 'gold', price: 12 },
         { id: 'bow_power', name: '力量弓 (增伤)', type: 'bow', bowType: 'power', currency: 'gold', price: 20 },
         { id: 'bow_punch', name: '击退弓 (强击退)', type: 'bow', bowType: 'punch', currency: 'emerald', price: 6 },
@@ -146,9 +146,7 @@ class ShopManager {
     sprite.position.set(0, 2.0, 0);
     group.add(sprite);
 
-    if (this.scene) {
-      this.scene.add(group);
-    }
+    this.scene.add(group);
     this.villagers.push({ x, y, z, group, sprite });
   }
 

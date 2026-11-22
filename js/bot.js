@@ -2695,7 +2695,7 @@ class Bot {
           const isMace = (this.weaponTier === 'mace' || this.hasMace);
           if (isMace) {
             const heightAdv = Math.max(0, this.position.y - targetPos.y);
-            const maceBonus = Math.floor(heightAdv) * 3;
+            const maceBonus = Math.floor(heightAdv) * 6;
             finalDmg = 6 + maceBonus + teamSharp;
             if (heightAdv >= 1.0) {
               if (window.soundManager && typeof window.soundManager.playHeavySmash === 'function') {

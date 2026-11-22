@@ -430,7 +430,7 @@ class VoxelWorld {
       { id: 'sword_stone', name: '锋利石剑', type: 'weapon', count: 1, damage: 5 },
       { id: 'sword_iron', name: '精炼铁剑', type: 'weapon', count: 1, damage: 6 },
       { id: 'sword_diamond', name: '锋利钻石神剑', type: 'weapon', count: 1, damage: 7 },
-      { id: 'mace', name: '重锤 (高空砸下每格+3伤)', type: 'weapon', weaponType: 'mace', count: 1, damage: 6 }
+      { id: 'mace', name: '重锤 (高空砸下每格+6伤)', type: 'weapon', weaponType: 'mace', count: 1, damage: 6 }
     ];
 
     const armors = [
@@ -596,7 +596,7 @@ class VoxelWorld {
       { id: 'potion_invis', name: '隐形药水 (30秒)', type: 'potion', potionType: 'invis', duration: 30, count: 1 },
       { id: 'pickaxe_diamond', name: '钻石镐', type: 'tool', count: 1 },
       { id: 'golden_apple', name: '金苹果 x4', type: 'utility', count: 4 },
-      { id: 'mace', name: '重锤 (高空砸下每格+3伤)', type: 'weapon', weaponType: 'mace', count: 1, damage: 6 },
+      { id: 'mace', name: '重锤 (高空砸下每格+6伤)', type: 'weapon', weaponType: 'mace', count: 1, damage: 6 },
       { id: 'wind_charge', name: '风弹 x8', type: 'utility', projectileType: 'wind_charge', count: 8 }
     ];
 
