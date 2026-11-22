@@ -291,10 +291,23 @@
       // Keep wool stocked so boss can always bridge across void
       if (this.woolCount < 32) this.woolCount = 64;
 
-      // Void Fall Check: if boss falls into void (y < -12), it dies legitimately!
-      if (this.position.y < -12 && !this.isDead) {
-        this.die('void');
+      // Void Immunity: boss is completely immune to the void and warps back to safety!
+      if (this.position.y < 0.5 && !this.isDead) {
+        this.recoverFromVoid();
         return;
+      }
+
+      // Void-Walking Manifestation: automatically conjure purple wool under feet when traversing void
+      if (this.world && typeof this.world.getBlock === 'function' && typeof this.world.setBlock === 'function') {
+        const bx = Math.round(this.position.x);
+        const by = Math.round(this.position.y);
+        const bz = Math.round(this.position.z);
+        if (by >= 0) {
+          const blockUnder = this.world.getBlock(bx, by - 1, bz);
+          if (!blockUnder || !blockUnder.type) {
+            this.world.setBlock(bx, by - 1, bz, 'PURPLE_WOOL');
+          }
+        }
       }
 
       // 1. Target check
@@ -390,19 +403,70 @@
       }
     }
 
+    recoverFromVoid() {
+      if (this.isDead) return;
+
+      // Find safe solid block nearby, or fallback to center island (0, 9.2, 0)
+      let safePos = new THREE.Vector3(0, 9.2, 0);
+      if (this.world && typeof this.world.getBlock === 'function') {
+        const curX = Math.round(this.position.x);
+        const curZ = Math.round(this.position.z);
+        let found = false;
+        // Search outwards for solid ground with free air space above
+        for (let r = 2; r <= 16 && !found; r += 2) {
+          for (let dx = -r; dx <= r && !found; dx += 2) {
+            for (let dz = -r; dz <= r && !found; dz += 2) {
+              const testX = curX + dx;
+              const testZ = curZ + dz;
+              for (let y = 14; y >= 1; y--) {
+                const b = this.world.getBlock(testX, y, testZ);
+                const bAbove = this.world.getBlock(testX, y + 1, testZ);
+                if (b && b.type && (!bAbove || !bAbove.type)) {
+                  safePos.set(testX + 0.5, y + 1.2, testZ + 0.5);
+                  found = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      this.position.copy(safePos);
+      this.velocity.set(0, 0, 0);
+      this.group.position.copy(this.position);
+
+      const now = performance.now();
+      if (!this._lastVoidRecoveryMsg || now - this._lastVoidRecoveryMsg > 3000) {
+        this._lastVoidRecoveryMsg = now;
+        if (window.game && typeof window.game.addChatMessage === 'function') {
+          window.game.addChatMessage('§5★ 【末地领主】触发末影折跃，无视虚空重返战场！');
+        }
+      }
+
+      if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+        window.soundManager.playDing(800);
+      }
+      if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
+        window.WeaponModelBuilder.spawnSmashShockwave(this.world, safePos);
+      }
+    }
+
     die(cause = 'killed', killer = '玩家') {
       if (this.isDead) return;
+      // Completely immune to void death
+      if (cause === 'void') {
+        this.recoverFromVoid();
+        return;
+      }
+
       this.isDead = true;
       this.health = 0;
       this.group.visible = false;
       this.updateBossBar();
 
       if (window.game) {
-        if (cause === 'void') {
-          window.game.addChatMessage('§d★ 【末地领主】坠入无尽虚空陨落！将在 1 分钟后浴火重生！');
-        } else {
-          window.game.addChatMessage(`§d★ 强大的【末地领主】被 §f${killer} §d成功讨伐击杀！掉落了终极宝藏！将在 1 分钟后浴火重生！`);
-        }
+        window.game.addChatMessage(`§d★ 强大的【末地领主】被 §f${killer} §d成功讨伐击杀！掉落了终极宝藏！将在 1 分钟后浴火重生！`);
         // Notify game manager to start 1-minute respawn countdown
         if (typeof window.game.onEndBossDied === 'function') {
           window.game.onEndBossDied();
@@ -413,16 +477,16 @@
       if (window.soundManager && typeof window.soundManager.playDing === 'function') {
         window.soundManager.playDing(1600);
       }
-      const dropPos = (cause === 'void') ? new THREE.Vector3(0, 9.2, 0) : this.position;
+      const dropPos = this.position;
       if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
         window.WeaponModelBuilder.spawnSmashShockwave(this.world, dropPos);
       }
 
-      // Drop Epic Loot: 10 Emeralds (if killed by void, drop safely at center platform)
+      // Drop Epic Loot: 10 Emeralds
       if (this.world && typeof this.world.spawnItemDrop === 'function') {
-        const dropX = (cause === 'void') ? 0 : this.position.x;
-        const dropY = (cause === 'void') ? 9.2 : Math.max(1, this.position.y + 0.5);
-        const dropZ = (cause === 'void') ? 0 : this.position.z;
+        const dropX = this.position.x;
+        const dropY = Math.max(1, this.position.y + 0.5);
+        const dropZ = this.position.z;
         for (let i = 0; i < 10; i++) {
           this.world.spawnItemDrop(dropX + (Math.random() - 0.5) * 2.0, dropY, dropZ + (Math.random() - 0.5) * 2.0, 'emerald');
         }
@@ -452,6 +516,11 @@
     update(dt, player, allBots) {
       if (this.isDead) return;
 
+      // Void immunity check: if falling into void, warp back up
+      if (this.position.y < 0.5) {
+        this.recoverFromVoid();
+      }
+
       // Periodic End Boss aura: floating violet particles
       if (Math.random() < 0.25 && this.world && this.world.scene && this.world.particles) {
         const auraGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
@@ -471,6 +540,12 @@
       }
 
       super.update(dt, player, allBots);
+
+      // Post-physics void immunity guard
+      if (this.position.y < 0.5 && !this.isDead) {
+        this.recoverFromVoid();
+      }
+
       this.updateBossBar();
     }
   }
