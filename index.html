@@ -77,6 +77,17 @@
       <!-- Potion Effects HUD Overlay -->
       <div id="potion-effects-hud"></div>
 
+      <!-- Boss Bar (End Realm Boss) -->
+      <div id="boss-bar-container" style="display: none; position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 440px; max-width: 90vw; text-align: center; pointer-events: none; z-index: 60;">
+        <div id="boss-bar-title" style="font-size: 15px; font-weight: bold; color: #f0abfc; text-shadow: 2px 2px #000; margin-bottom: 5px; letter-spacing: 1px;">
+          👑 末地领主 · End Lord
+        </div>
+        <div id="boss-hp-bar" style="width: 100%; height: 18px; background: rgba(18, 9, 30, 0.85); border: 2px solid #a855f7; border-radius: 4px; box-shadow: 0 0 10px rgba(168, 85, 247, 0.5); overflow: hidden; position: relative;">
+          <div id="boss-hp-fill" style="width: 100%; height: 100%; background: linear-gradient(90deg, #9333ea, #ec4899); transition: width 0.15s ease-out;"></div>
+          <div id="boss-hp-text" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; font-size: 12px; font-weight: bold; line-height: 16px; color: #ffffff; text-shadow: 1px 1px 2px #000;">100 / 100 HP</div>
+        </div>
+      </div>
+
       <!-- Top-Right Scoreboard -->
       <div id="scoreboard">
         <div id="scoreboard-title">BED WARS</div>
@@ -513,6 +524,7 @@
   <script src="js/generators.js?v=20261120_01"></script>
   <script src="js/player.js?v=20261120_01"></script>
   <script src="js/bot.js?v=20261120_01"></script>
+  <script src="js/boss.js?v=20261122_01"></script>
   <script src="js/teammate.js?v=20261120_01"></script>
   <script src="js/shop.js?v=20261120_01"></script>
   <script src="js/touch.js?v=20261120_01"></script>

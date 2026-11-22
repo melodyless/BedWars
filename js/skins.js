@@ -118,6 +118,10 @@
       if (this.configs[botId]) {
         return this.configs[botId];
       }
+      // End Realm Boss custom skin
+      if (botId === 'end_boss') {
+        return { type: 'custom', name: 'end_boss.png', data: window.BOSS_SKIN_DATAURL };
+      }
       // If school battle royale bot, randomly assign distinct presets
       if (botId && (botId.startsWith('bot_br_') || botId.startsWith('bot_school_'))) {
         const presetKeys = ['steve', 'alex', 'zombie', 'skeleton', 'enderman', 'creeper', 'knight', 'cyber', 'demon'];

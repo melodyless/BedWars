@@ -267,6 +267,10 @@ class BedwarsGame {
       }
     }
     this.bots = [];
+    this.endBoss = null;
+    this.endBossSpawned = false;
+    const bossBar = document.getElementById('boss-bar-container');
+    if (bossBar) bossBar.style.display = 'none';
 
     if (this.generatorManager) {
       this.generatorManager.clearAll();
@@ -611,6 +615,47 @@ class BedwarsGame {
     }
   }
 
+  spawnEndBoss() {
+    if (this.endBossSpawned) return;
+    this.endBossSpawned = true;
+
+    // End Map center is x=0, z=0. The central monolith reaches y=8.
+    let spawnY = 9.2;
+    if (this.world && this.world.voxelMap) {
+      for (let y = 30; y >= -5; y--) {
+        const key = `0,${y},0`;
+        const b = this.world.voxelMap.get(key);
+        if (b && b.solid) {
+          spawnY = y + 1.2;
+          break;
+        }
+      }
+    }
+
+    if (window.EndBoss) {
+      this.endBoss = new window.EndBoss(this.scene, this.world, {
+        spawnPos: { x: 0, y: spawnY, z: 0 }
+      });
+      this.bots.push(this.endBoss);
+
+      // Play thunder / awakening ding sounds
+      if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+        window.soundManager.playDing(300);
+        setTimeout(() => window.soundManager.playDing(600), 120);
+        setTimeout(() => window.soundManager.playDing(1200), 240);
+      }
+
+      // Violet shockwave particles
+      if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
+        window.WeaponModelBuilder.spawnSmashShockwave(this.world, new THREE.Vector3(0, spawnY, 0));
+      }
+
+      this.showBigBanner('§5★ 末地领主降临 ★', '末地核心领主苏醒，正在摧毁一切！');
+      this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 100 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
+      this.updateScoreboard();
+    }
+  }
+
   bindUIEvents() {
     const startScreen = document.getElementById('start-screen');
     const startBtn = document.getElementById('start-btn');
@@ -787,7 +832,15 @@ class BedwarsGame {
           startGame();
         }
       }
+      // 'O' key shortcut to immediately summon End Boss for testing/demo
+      if (this.isGameRunning && (e.key === 'o' || e.key === 'O') && !this.endBossSpawned) {
+        this.spawnEndBoss();
+      }
     });
+
+    window.spawnEndBoss = () => {
+      this.spawnEndBoss();
+    };
 
     if (resumeOverlay) {
       resumeOverlay.addEventListener('click', (e) => {
@@ -1233,6 +1286,35 @@ class BedwarsGame {
           </div>
         `;
       }
+
+      // End Map Boss Countdown / Live Status Display
+      if (this.currentMap === 'end') {
+        let bossStatusHtml = '';
+        if (!this.endBossSpawned) {
+          const remSec = Math.max(0, Math.ceil(300 - this.matchTime));
+          const m = Math.floor(remSec / 60);
+          const s = String(remSec % 60).padStart(2, '0');
+          bossStatusHtml = `
+            <div style="font-size: 13px; color: #c084fc; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(192, 132, 252, 0.4);">
+              🟣 领主苏醒: <span style="color:#fdf4ff; font-weight:bold;">${m}:${s}</span>
+            </div>
+          `;
+        } else if (this.endBoss && !this.endBoss.isDead) {
+          bossStatusHtml = `
+            <div style="font-size: 13px; color: #ec4899; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(236, 72, 153, 0.4);">
+              👑 末地领主: <span style="color:#f0abfc; font-weight:bold;">${Math.max(0, Math.round(this.endBoss.health))}/100 HP</span>
+            </div>
+          `;
+        } else {
+          bossStatusHtml = `
+            <div style="font-size: 13px; color: #94a3b8; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(148, 163, 184, 0.4);">
+              👑 末地领主: <span style="color:#22c55e; font-weight:bold;">☠ 已讨伐</span>
+            </div>
+          `;
+        }
+        html += bossStatusHtml;
+      }
+
       teamsContainer.innerHTML = html;
     }
   }
@@ -1246,6 +1328,12 @@ class BedwarsGame {
 
       if (this.isGameRunning) {
         this.matchTime += dt;
+
+        // End Realm Boss awakening: 5 minutes (300 seconds) after match starts
+        if (this.currentMap === 'end' && !this.endBossSpawned && this.matchTime >= 300) {
+          this.spawnEndBoss();
+        }
+
         this.diamondTimer = Math.max(0, this.diamondTimer - dt);
         if (this.diamondTimer <= 0) this.diamondTimer = 12;
 
