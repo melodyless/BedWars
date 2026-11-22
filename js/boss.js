@@ -89,6 +89,7 @@
     }
 
     updateEquipmentVisuals() {
+      if (this.isDead) return;
       // Overridden: Boss does NOT wear armor plates, keeping suit & tie 100% visible
       if (this.helmetMesh) this.helmetMesh.visible = false;
       if (this.beltMesh) this.beltMesh.visible = false;
@@ -396,22 +397,13 @@
       this.group.visible = false;
       this.updateBossBar();
 
-      if (this.scene && this.group) {
-        this.scene.remove(this.group);
-      }
-
       if (window.game) {
         if (cause === 'void') {
-          window.game.addChatMessage('§d★ 【末地领主】坠入无尽虚空陨落！将在 2 分钟后浴火重生！');
+          window.game.addChatMessage('§d★ 【末地领主】坠入无尽虚空陨落！将在 1 分钟后浴火重生！');
         } else {
-          window.game.addChatMessage(`§d★ 强大的【末地领主】被 §f${killer} §d成功讨伐击杀！掉落了终极宝藏！将在 2 分钟后浴火重生！`);
+          window.game.addChatMessage(`§d★ 强大的【末地领主】被 §f${killer} §d成功讨伐击杀！掉落了终极宝藏！将在 1 分钟后浴火重生！`);
         }
-        // Remove from bots list
-        if (window.game.bots) {
-          const idx = window.game.bots.indexOf(this);
-          if (idx !== -1) window.game.bots.splice(idx, 1);
-        }
-        // Notify game manager to start respawn countdown
+        // Notify game manager to start 1-minute respawn countdown
         if (typeof window.game.onEndBossDied === 'function') {
           window.game.onEndBossDied();
         }
@@ -435,6 +427,26 @@
           this.world.spawnItemDrop(dropX + (Math.random() - 0.5) * 2.0, dropY, dropZ + (Math.random() - 0.5) * 2.0, 'emerald');
         }
       }
+    }
+
+    respawn() {
+      this.isDead = false;
+      this.health = this.maxHealth;
+      const spawnY = this.spawnPoint ? this.spawnPoint.y : 9.2;
+      this.position.set(0, spawnY, 0);
+      this.velocity.set(0, 0, 0);
+      this.group.position.copy(this.position);
+      this.group.visible = true;
+      this.woolCount = 64;
+      this.currentTarget = null;
+      this.state = 'ATTACK_BED';
+      this.stateTimer = 0;
+      this.patrolWp = null;
+
+      // Re-apply visual appearance & nametag & boss bar
+      this.updateEquipmentVisuals();
+      this.updateNametag(true);
+      this.updateBossBar();
     }
 
     update(dt, player, allBots) {

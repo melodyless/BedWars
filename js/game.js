@@ -636,42 +636,42 @@ class BedwarsGame {
       }
     }
 
-    if (window.EndBoss) {
-      if (this.endBoss && this.endBoss.group && this.scene) {
-        this.scene.remove(this.endBoss.group);
-      }
-
+    if (this.endBoss) {
+      // Clean reuse and respawn of existing boss instance (zero array splicing, zero memory leak)
+      this.endBoss.spawnPoint = new THREE.Vector3(0, spawnY, 0);
+      this.endBoss.respawn();
+    } else if (window.EndBoss) {
       this.endBoss = new window.EndBoss(this.scene, this.world, {
         spawnPos: { x: 0, y: spawnY, z: 0 }
       });
       this.bots.push(this.endBoss);
-
-      // Play thunder / awakening ding sounds
-      if (window.soundManager && typeof window.soundManager.playDing === 'function') {
-        window.soundManager.playDing(300);
-        setTimeout(() => window.soundManager.playDing(600), 120);
-        setTimeout(() => window.soundManager.playDing(1200), 240);
-      }
-
-      // Violet shockwave particles
-      if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
-        window.WeaponModelBuilder.spawnSmashShockwave(this.world, new THREE.Vector3(0, spawnY, 0));
-      }
-
-      if (isRespawn) {
-        this.showBigBanner('§5★ 末地领主浴火复活！ ★', '末地核心领主重构神躯，再次降临中央遗迹！');
-        this.addChatMessage('§5★ 警告：【末地领主】已成功复活！它携 100 点生命值与 10 点攻击力再次向所有玩家与床位宣战！');
-      } else {
-        this.showBigBanner('§5★ 末地领主降临 ★', '末地核心领主苏醒，正在摧毁一切！');
-        this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 100 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
-      }
-      this.updateScoreboard();
     }
+
+    // Play thunder / awakening ding sounds
+    if (window.soundManager && typeof window.soundManager.playDing === 'function') {
+      window.soundManager.playDing(300);
+      setTimeout(() => window.soundManager.playDing(600), 120);
+      setTimeout(() => window.soundManager.playDing(1200), 240);
+    }
+
+    // Violet shockwave particles
+    if (window.WeaponModelBuilder && typeof window.WeaponModelBuilder.spawnSmashShockwave === 'function') {
+      window.WeaponModelBuilder.spawnSmashShockwave(this.world, new THREE.Vector3(0, spawnY, 0));
+    }
+
+    if (isRespawn) {
+      this.showBigBanner('§5★ 末地领主浴火复活！ ★', '末地核心领主重构神躯，再次降临中央遗迹！');
+      this.addChatMessage('§5★ 警告：【末地领主】已成功复活！它携 100 点生命值与 10 点攻击力再次向所有玩家与床位宣战！');
+    } else {
+      this.showBigBanner('§5★ 末地领主降临 ★', '末地核心领主苏醒，正在摧毁一切！');
+      this.addChatMessage('§5★ 警告：【末地领主】已在中央黑曜石遗迹苏醒！它拥有 100 点生命值与 10 点攻击力，将袭击所有玩家并粉碎所有床！');
+    }
+    this.updateScoreboard();
   }
 
   onEndBossDied() {
     this.endBossIsRespawning = true;
-    this.endBossRespawnTimer = 120; // 2 minutes (120s) respawn cooldown
+    this.endBossRespawnTimer = 60; // 1 minute (60s) respawn cooldown as requested
     this.updateScoreboard();
   }
 
