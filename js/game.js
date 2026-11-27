@@ -76,23 +76,11 @@ class BedwarsGame {
         ambientInt: 0.75,
         sun: 0xfffaed,
         sunInt: 0.90
-      },
-      survival: {
-        name: '生存荒野 (R=300)',
-        sky: 0x87ceeb,
-        fog: 0x9ad8f0,
-        fogDensity: 0.0028,
-        ambient: 0xffffff,
-        ambientInt: 0.78,
-        sun: 0xfff8e7,
-        sunInt: 0.92
       }
     };
 
     this.isGameRunning = false;
     this.lastTime = performance.now();
-    this.survivalDuelStarted = false;
-    this.survivalDuelTimer = 600;
 
     // Stats
     this.matchTime = 0;
@@ -186,9 +174,7 @@ class BedwarsGame {
     const startBtn = document.getElementById('start-btn');
     if (!startBtn) return;
     let modeName = '经典单挑 1v1';
-    if (this.selectedMode === 'survival_war') {
-      modeName = '🌲 生存战争 16人4队决战';
-    } else if (this.selectedMode === 'school_br') {
+    if (this.selectedMode === 'school_br') {
       modeName = '🐔 校园吃鸡 16人混战';
     } else if (this.selectedMode === 'pvp_1v1') {
       modeName = '⚔️ 纯粹 PVP 决斗';
@@ -249,9 +235,7 @@ class BedwarsGame {
     this.currentMode = mode;
     this.currentTeamSize = teamSize;
     this.currentDifficulty = difficulty;
-    if (mode === 'survival_war') {
-      this.currentMap = 'survival';
-    } else if (mode === 'school_br') {
+    if (mode === 'school_br') {
       this.currentMap = 'school';
     } else {
       this.currentMap = this.selectedMap || 'boogie';
@@ -324,14 +308,10 @@ class BedwarsGame {
     const isPvp = (mode === 'pvp_1v1');
     const isSkyWars = (mode && mode.startsWith('skywars'));
     const isSchoolBR = (mode === 'school_br');
-    const isSurvivalWar = (mode === 'survival_war');
-
-    this.survivalDuelStarted = false;
-    this.survivalDuelTimer = 600; // 10 minutes survival before 4-team duel
 
     this.generatorManager = new GeneratorManager(this.scene);
     this.generators = this.generatorManager; // Alias
-    if (!isPvp && !isSkyWars && !isSchoolBR && !isSurvivalWar) {
+    if (!isPvp && !isSkyWars && !isSchoolBR) {
       this.generatorManager.initSpawners(mode);
     }
 
@@ -340,14 +320,14 @@ class BedwarsGame {
     } else {
       this.shopManager.player = this.player;
     }
-    if (!isPvp && !isSkyWars && !isSchoolBR && !isSurvivalWar) {
+    if (!isPvp && !isSkyWars && !isSchoolBR) {
       this.shopManager.initVillagerNPCs(mode);
     }
     window.shopManager = this.shopManager;
 
     const resDisplay = document.getElementById('resources-display');
     if (resDisplay) {
-      resDisplay.style.display = (isPvp || isSkyWars || isSchoolBR || isSurvivalWar) ? 'none' : 'flex';
+      resDisplay.style.display = (isPvp || isSkyWars || isSchoolBR) ? 'none' : 'flex';
     }
 
     // 5. Spawn Bots & Configure Equipment based on Mode
@@ -451,66 +431,6 @@ class BedwarsGame {
           initialBedPos: { x: 0, y: 1, z: -29 },
           initialState: 'LOOT_CHEST'
         }));
-      }
-    } else if (isSurvivalWar) {
-      // 16-Player Survival War across Radius-300 Circular World
-      const survSpawnPoints = [];
-      for (let i = 0; i < 16; i++) {
-        const ang = (i / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
-        const rad = 110 + (i % 3) * 45 + Math.random() * 25;
-        const sx = Math.round(Math.cos(ang) * rad);
-        const sz = Math.round(Math.sin(ang) * rad);
-        const sy = (this.world && typeof this.world.getSurvivalHeight === 'function')
-          ? this.world.getSurvivalHeight(sx, sz) + 1.5
-          : 4.5;
-        survSpawnPoints.push(new THREE.Vector3(sx, sy, sz));
-      }
-      const pSpawn = survSpawnPoints[0];
-      this.player.position.copy(pSpawn);
-      this.player.spawnPoint = pSpawn.clone();
-      this.player.velocity.set(0, 0, 0);
-      this.player.onGround = false;
-      this.player.yaw = Math.random() * Math.PI * 2;
-      this.player.pitch = 0;
-      this.player.armorTier = 'none';
-      this.player.hotbar = [
-        { id: 'sword_wooden', name: '木剑', type: 'weapon', count: 1, damage: 4 },
-        { id: 'pickaxe_wood', name: '木镐', type: 'tool', count: 1 },
-        { id: 'wood_planks', name: '橡木木板', type: 'block', blockType: 'OAK_PLANKS', count: 8 },
-        null, null, null, null, null, null
-      ];
-      this.player.updateHUD();
-      this.player.updateHeldItemVisual();
-
-      const survBotNames = [
-        '荒野猎人', '矿洞大师', '红石学者', '末影行者', '铁傀儡护卫',
-        '钻石挖矿王', '森林游侠', '孤狼生存家', '雪原战神', '狂战士阿飞',
-        '潜行刺客', '跳劈宗师', '雷霆剑圣', '熔炉工匠', '苍穹骑士'
-      ];
-      const presetList = ['steve', 'alex', 'zombie', 'skeleton', 'enderman', 'creeper', 'knight', 'cyber', 'demon'];
-
-      this.teams = ['red'];
-      for (let i = 0; i < 15; i++) {
-        const bTeam = `surv_${i + 1}`;
-        this.teams.push(bTeam);
-        const bId = `bot_surv_${i + 1}`;
-        const bSpawn = survSpawnPoints[i + 1];
-        const randomSkinId = presetList[Math.floor(Math.random() * presetList.length)];
-        if (window.SkinManager) {
-          window.SkinManager.setBotSkin(bId, { type: 'preset', id: randomSkinId });
-        }
-
-        const bot = new Bot(this.scene, this.world, {
-          id: bId,
-          name: survBotNames[i],
-          team: bTeam,
-          difficulty,
-          spawnPos: { x: bSpawn.x, y: bSpawn.y, z: bSpawn.z },
-          initialState: 'SURVIVAL_GATHER',
-          initialWeapon: 'wood',
-          initialArmor: 'none'
-        });
-        this.bots.push(bot);
       }
     } else if (isSchoolBR) {
       // 16-Player Battle Royale across Campus
@@ -670,16 +590,13 @@ class BedwarsGame {
     const sbTitleEl = document.getElementById('scoreboard-title');
     const modeTitleEl = document.getElementById('sb-mode-title');
     if (sbTitleEl) {
-      if (isSurvivalWar) sbTitleEl.innerText = 'SURVIVAL WAR';
-      else if (isSchoolBR) sbTitleEl.innerText = 'BATTLE ROYALE';
+      if (isSchoolBR) sbTitleEl.innerText = 'BATTLE ROYALE';
       else if (isPvp) sbTitleEl.innerText = '1V1 DUEL';
       else if (isSkyWars) sbTitleEl.innerText = 'SKY WARS';
       else sbTitleEl.innerText = 'BED WARS';
     }
     if (modeTitleEl) {
-      if (isSurvivalWar) {
-        modeTitleEl.innerText = '🌲 生存战争 · 16人4队决战';
-      } else if (isSchoolBR) {
+      if (isSchoolBR) {
         modeTitleEl.innerText = '🐔 校园吃鸡 · 16人混战';
       } else if (isPvp) {
         modeTitleEl.innerText = '决斗角斗场 · 纯粹 PVP';
@@ -902,11 +819,7 @@ class BedwarsGame {
       this.lastTime = performance.now();
       lockPointer();
 
-      if (this.currentMode === 'survival_war') {
-        this.addChatMessage('§a[生存战争] 16人已分散降临半径300格荒野地表！');
-        this.addChatMessage('§e按照原版生存规则砍树、挖矿、搜箱升级，按 §bC §e打开原版合成台升级神装！');
-        this.addChatMessage('§610分钟后全员将分为 4 队传送进入高空决斗场决一胜负，最后存活队伍获胜！');
-      } else if (this.currentMode === 'school_br') {
+      if (this.currentMode === 'school_br') {
         this.addChatMessage('§6[校园吃鸡 16人混战] 比赛正式开始！');
         this.addChatMessage('§e16人全随机散布操场与教学楼！快速搜箱抢装，下落跳劈双倍暴击！');
       } else if (this.currentMode === 'pvp_1v1') {
@@ -1053,87 +966,7 @@ class BedwarsGame {
     }
   }
 
-  startSurvivalDuelPhase() {
-    if (this.survivalDuelStarted) return;
-    this.survivalDuelStarted = true;
-    this.survivalDuelTimer = 0;
-
-    // 1. Revive any participant currently waiting on 5s survival respawn so all 16 enter the 4-team duel!
-    if (this.player && this.player.isDead) {
-      this.player.respawn();
-    }
-    for (const bot of this.bots) {
-      if (bot.isDead) bot.respawn();
-    }
-
-    // 2. Shuffle 15 bots and assign 4 teams of 4 (Player + 3 Red bots vs 4 Blue vs 4 Green vs 4 Yellow)
-    const shuffled = [...this.bots].sort(() => Math.random() - 0.5);
-    const teamList = ['red', 'blue', 'green', 'yellow'];
-    this.teams = teamList;
-
-    const teamSpawns = {
-      red: new THREE.Vector3(0, 50.0, 18),
-      blue: new THREE.Vector3(0, 50.0, -18),
-      green: new THREE.Vector3(18, 50.0, 0),
-      yellow: new THREE.Vector3(-18, 50.0, 0)
-    };
-    const teamYaws = { red: 0, blue: Math.PI, green: Math.PI / 2, yellow: -Math.PI / 2 };
-
-    // Teleport Player (Red Team)
-    if (this.player) {
-      this.player.position.copy(teamSpawns.red);
-      this.player.spawnPoint = teamSpawns.red.clone();
-      this.player.velocity.set(0, 0, 0);
-      this.player.yaw = teamYaws.red;
-      this.player.health = this.player.maxHealth;
-      this.player.updateHUD();
-    }
-
-    // Assign & teleport 15 Bots (first 3 -> red, next 4 -> blue, next 4 -> green, last 4 -> yellow)
-    for (let i = 0; i < shuffled.length; i++) {
-      const bot = shuffled[i];
-      const assignedTeam = (i < 3) ? 'red' : (i < 7) ? 'blue' : (i < 11) ? 'green' : 'yellow';
-      bot.team = assignedTeam;
-      const baseSpawn = teamSpawns[assignedTeam];
-      const offset = (i % 4) - 1.5;
-      const bx = baseSpawn.x + (assignedTeam === 'red' || assignedTeam === 'blue' ? offset * 2.2 : 0);
-      const bz = baseSpawn.z + (assignedTeam === 'green' || assignedTeam === 'yellow' ? offset * 2.2 : 0);
-      bot.spawnPoint = new THREE.Vector3(bx, 50.0, bz);
-      bot.position.set(bx, 50.0, bz);
-      bot.velocity.set(0, 0, 0);
-      bot.health = bot.maxHealth;
-      bot.state = 'COMBAT';
-      bot.currentTarget = null;
-      bot.stateTimer = 0;
-      bot.updateEquipmentVisuals();
-      if (typeof bot.updateNametag === 'function') bot.updateNametag();
-    }
-
-    if (window.soundManager && typeof window.soundManager.playDing === 'function') {
-      window.soundManager.playDing(500);
-      setTimeout(() => window.soundManager.playDing(900), 150);
-    }
-    this.showBigBanner('§6★ 10分钟生存结束 · 4队决斗开启！ ★', '16人已分为 红/蓝/绿/黄 4队进入决斗场，最后存活队伍胜利！');
-    this.addChatMessage('§6★ 【生存战争】10分钟发育阶段结束！全员已分为 §c红 §9蓝 §a绿 §e黄 §64支4人小队传送进入高空决斗场！');
-    this.addChatMessage('§e决斗场内无法复活，最后存活下来的一组获得最终胜利！');
-    this.updateScoreboard();
-  }
-
   onFinalKill(team, bot, killer = null) {
-    if (this.currentMode === 'survival_war') {
-      if (killer && (killer.includes('玩家') || killer === '你')) {
-        this.kills++;
-      }
-      const teamNames = { red: '红队', blue: '蓝队', green: '绿队', yellow: '黄队' };
-      const tName = teamNames[team] || team;
-      const victimName = bot ? bot.name : '你';
-      const killerDisplay = killer ? `被 §f${killer} §e` : '';
-      this.addChatMessage(`§e[决斗淘汰] §f[${tName}] ${victimName} §e${killerDisplay}淘汰出局！`);
-      this.updateScoreboard();
-      this.checkMatchOutcome();
-      return;
-    }
-
     if (this.currentMode === 'school_br') {
       let aliveBots = 0;
       for (const b of this.bots) {
@@ -1185,32 +1018,6 @@ class BedwarsGame {
   }
 
   checkMatchOutcome() {
-    if (this.currentMode === 'survival_war') {
-      if (!this.survivalDuelStarted) return;
-      let redAlive = (this.player && !this.player.isDead) ? 1 : 0;
-      for (const b of this.bots) {
-        if (b.team === 'red' && !b.isDead) redAlive++;
-      }
-      if (redAlive === 0) {
-        this.defeat();
-        return;
-      }
-      let anyEnemyAlive = false;
-      for (const t of ['blue', 'green', 'yellow']) {
-        for (const b of this.bots) {
-          if (b.team === t && !b.isDead) {
-            anyEnemyAlive = true;
-            break;
-          }
-        }
-        if (anyEnemyAlive) break;
-      }
-      if (!anyEnemyAlive) {
-        this.victory();
-      }
-      return;
-    }
-
     if (this.currentMode === 'school_br') {
       let aliveBots = 0;
       for (const b of this.bots) {
@@ -1268,27 +1075,6 @@ class BedwarsGame {
     this.isGameRunning = false;
     window.soundManager.playVictory();
 
-    if (this.currentMode === 'survival_war') {
-      this.showBigBanner('§6★ 生存战争 · 终极胜利！ ★', '红队成为4组决斗场最后存活的王者之师！');
-      setTimeout(() => {
-        if (document.exitPointerLock) document.exitPointerLock();
-        const modal = document.getElementById('gameover-modal');
-        const title = document.getElementById('modal-title');
-        const stats = document.getElementById('modal-stats');
-        if (modal && title && stats) {
-          title.innerHTML = '§6★ 生存战争 · 终极胜利！ ★';
-          stats.innerHTML = `
-            🏆 获胜队伍: 红队 (4人小组)<br>
-            ⚔️ 个人击杀: ${this.kills}<br>
-            ⏱️ 比赛用时: ${Math.floor(this.matchTime)} 秒<br>
-            成功在半径300格生存与4队决斗场中笑到最后！
-          `;
-          modal.style.display = 'block';
-        }
-      }, 2500);
-      return;
-    }
-
     if (this.currentMode === 'school_br') {
       this.showBigBanner('§6★ 大吉大利，今晚吃鸡！ ★', '你是校园大逃杀唯一幸存者！');
       setTimeout(() => {
@@ -1332,25 +1118,6 @@ class BedwarsGame {
 
   defeat() {
     this.isGameRunning = false;
-
-    if (this.currentMode === 'survival_war') {
-      this.showBigBanner('§c红队全员阵亡！', '红队已被淘汰出决斗场！');
-      setTimeout(() => {
-        if (document.exitPointerLock) document.exitPointerLock();
-        const modal = document.getElementById('gameover-modal');
-        const title = document.getElementById('modal-title');
-        const stats = document.getElementById('modal-stats');
-        if (modal && title && stats) {
-          title.innerHTML = '§c红队淘汰出局';
-          stats.innerHTML = `
-            个人击杀: ${this.kills}<br>
-            存活用时: ${Math.floor(this.matchTime)} 秒
-          `;
-          modal.style.display = 'block';
-        }
-      }, 2500);
-      return;
-    }
 
     if (this.currentMode === 'school_br') {
       let aliveBots = 0;
@@ -1458,57 +1225,6 @@ class BedwarsGame {
     const finalKillsEl = document.getElementById('sb-final-kills');
     const bedsEl = document.getElementById('sb-beds');
     const teamsContainer = document.getElementById('sb-teams-container');
-
-    if (this.currentMode === 'survival_war') {
-      if (diaTimerEl && diaTimerEl.parentElement) diaTimerEl.parentElement.style.display = 'none';
-      if (emeTimerEl && emeTimerEl.parentElement) emeTimerEl.parentElement.style.display = 'none';
-      if (killsEl) killsEl.innerText = this.kills;
-      if (finalKillsEl && finalKillsEl.parentElement) finalKillsEl.parentElement.style.display = 'none';
-      if (bedsEl && bedsEl.parentElement) bedsEl.parentElement.style.display = 'none';
-
-      if (teamsContainer) {
-        if (!this.survivalDuelStarted) {
-          const rem = Math.max(0, Math.ceil(this.survivalDuelTimer));
-          const m = Math.floor(rem / 60);
-          const s = String(rem % 60).padStart(2, '0');
-          const r = this.player ? this.player.resources : {};
-          teamsContainer.innerHTML = `
-            <div style="font-size: 14px; font-weight: bold; color: #fbbf24; margin-bottom: 6px;">
-              ⏳ 决斗场开启: <span style="color:#fff;">${m}:${s}</span>
-            </div>
-            <div style="font-size: 12px; color: #86efac; margin-bottom: 6px;">
-              🌲 阶段: 原版生存发育 (按 <b>C</b> 合成升级)
-            </div>
-            <div style="font-size: 12px; color: #e2e8f0; line-height: 1.6;">
-              🪵 木材: <b>${r.wood || 0}</b> &nbsp; 🪨 圆石: <b>${r.cobble || 0}</b><br>
-              ⚫ 煤炭: <b>${r.coal || 0}</b> &nbsp; ⚙️ 铁锭: <b>${r.iron || 0}</b><br>
-              🪙 金锭: <b>${r.gold || 0}</b> &nbsp; 💎 钻石: <b>${r.diamond || 0}</b><br>
-              🍎 苹果: <b>${r.apple || 0}</b>
-            </div>
-          `;
-        } else {
-          const teamLabels = {
-            red: '[R] 红队 (你)',
-            blue: '[B] 蓝队',
-            green: '[G] 绿队',
-            yellow: '[Y] 黄队'
-          };
-          let html = '<div style="font-size: 13px; font-weight: bold; color: #f87171; margin-bottom: 6px;">⚔️ 决斗场 · 4队决战</div>';
-          for (const t of ['red', 'blue', 'green', 'yellow']) {
-            let alive = (t === 'red' && this.player && !this.player.isDead) ? 1 : 0;
-            for (const b of this.bots) {
-              if (b.team === t && !b.isDead) alive++;
-            }
-            const statusHtml = alive > 0
-              ? `<span style="color:#ffff55; font-weight:bold;">${alive} 人存活</span>`
-              : `<span class="sb-status-dead">✘ 淘汰</span>`;
-            html += `<div class="sb-team ${t}"><span>${teamLabels[t]}:</span>${statusHtml}</div>`;
-          }
-          teamsContainer.innerHTML = html;
-        }
-      }
-      return;
-    }
 
     if (this.currentMode === 'school_br') {
       let aliveBots = 0;
@@ -1642,22 +1358,6 @@ class BedwarsGame {
 
       if (this.isGameRunning) {
         this.matchTime += dt;
-
-        // Survival War 10-minute (600s) Survival -> 4-Team Duel Arena Transition
-        if (this.currentMode === 'survival_war' && !this.survivalDuelStarted) {
-          const prevSec = Math.ceil(this.survivalDuelTimer);
-          this.survivalDuelTimer -= dt;
-          const curSec = Math.ceil(this.survivalDuelTimer);
-          if (curSec !== prevSec && (curSec === 300 || curSec === 60 || curSec === 10 || (curSec <= 5 && curSec >= 1))) {
-            this.addChatMessage(`§e[生存战争] 距离 4 队决斗场开启还有 §c${curSec} §e秒！`);
-            if (window.soundManager && typeof window.soundManager.playBeep === 'function') {
-              window.soundManager.playBeep();
-            }
-          }
-          if (this.survivalDuelTimer <= 0) {
-            this.startSurvivalDuelPhase();
-          }
-        }
 
         // End Realm Boss initial awakening: 5 minutes (300 seconds) after match starts
         if (this.currentMap === 'end' && !this.endBossSpawned && this.matchTime >= 300) {

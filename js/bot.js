@@ -1021,21 +1021,6 @@ class Bot {
       return;
     }
 
-    // In Survival War: 5s respawn during 10-min survival phase, permanent elimination in Duel Arena
-    if (window.game && window.game.currentMode === 'survival_war') {
-      if (!window.game.survivalDuelStarted) {
-        window.game.addChatMessage(`${myTeam.prefix}${this.name} 将在 5 秒后于随机地表复活！`);
-        setTimeout(() => {
-          if (window.game && !window.game.survivalDuelStarted && window.game.isGameRunning) {
-            this.respawn();
-          }
-        }, 5000);
-      } else {
-        window.game.onFinalKill(this.team, this, killer);
-      }
-      return;
-    }
-
     // Check if bed of this team is still alive
     const bedAlive = this.world.bedStatus[this.team];
     if (bedAlive) {
@@ -1049,25 +1034,15 @@ class Bot {
   respawn() {
     this.isDead = false;
     this.health = this.maxHealth;
-    if (window.game && window.game.currentMode === 'survival_war' && !window.game.survivalDuelStarted && this.world && typeof this.world.getSurvivalHeight === 'function') {
-      const ang = Math.random() * Math.PI * 2;
-      const rad = 40 + Math.random() * 210;
-      const rx = Math.round(Math.cos(ang) * rad);
-      const rz = Math.round(Math.sin(ang) * rad);
-      const ry = this.world.getSurvivalHeight(rx, rz) + 1.5;
-      this.position.set(rx, ry, rz);
-      this.state = 'SURVIVAL_GATHER';
-    } else {
-      this.position.copy(this.spawnPoint);
-      this.state = 'GATHER';
-      this.weaponTier = 'wood'; // Reset weapon to basic wooden sword on respawn
-      this.resources = { iron: 0, gold: 0, diamond: 0, emerald: 0 };
-    }
+    this.position.copy(this.spawnPoint);
     this.velocity.set(0, 0, 0);
     this.group.visible = true;
 
+    this.state = 'GATHER';
     this.stateTimer = 0;
     this.woolCount = 32;
+    this.weaponTier = 'wood'; // Reset weapon to basic wooden sword on respawn
+    this.resources = { iron: 0, gold: 0, diamond: 0, emerald: 0 };
     this.updateEquipmentVisuals();
 
     const myTeam = this.teamData[this.team] || this.teamData.blue;
@@ -1627,24 +1602,6 @@ class Bot {
 
   // Strategic Decision Maker: Evaluates whether to Gather Diamonds, Rush Emeralds, or Attack Enemy Bed
   chooseNextObjective(fromShop = false) {
-    // Survival War Mode: Gather & upgrade during 10-min survival phase; hunt enemy teams in Duel Arena!
-    if (window.game && window.game.currentMode === 'survival_war') {
-      if (window.game.survivalDuelStarted) {
-        this.state = 'COMBAT';
-        this.stateTimer = 0;
-        return;
-      }
-      const { target, dist } = this.findTarget(window.player, window.bots || []);
-      if (target && dist < 10.0) {
-        this.state = 'COMBAT';
-        this.currentTarget = target;
-      } else {
-        this.state = 'SURVIVAL_GATHER';
-      }
-      this.stateTimer = 0;
-      return;
-    }
-
     // School Battle Royale Mode: Loot chests across campus, patrol school, hunt enemies!
     if (window.game && window.game.currentMode === 'school_br') {
       const { target, dist } = this.findTarget(window.player, window.bots || []);
@@ -1903,57 +1860,6 @@ class Bot {
     }
 
     switch (this.state) {
-      case 'SURVIVAL_GATHER': {
-        if (window.game && window.game.survivalDuelStarted) {
-          this.state = 'COMBAT';
-          this.stateTimer = 0;
-          break;
-        }
-        // Defend self if enemy gets very close (< 9m)
-        if (target && dist < 9.0) {
-          this.state = 'COMBAT';
-          this.currentTarget = target;
-          this.stateTimer = 0;
-          break;
-        }
-
-        // Roam surface waypoints within radius 270
-        if (!this.survWp || Math.hypot(this.survWp.x - this.position.x, this.survWp.z - this.position.z) < 3.0 || this.stateTimer > 10) {
-          const ang = Math.random() * Math.PI * 2;
-          const rad = 20 + Math.random() * 245;
-          this.survWp = { x: Math.cos(ang) * rad, z: Math.sin(ang) * rad };
-          this.stateTimer = 0;
-        }
-        this.moveTo(this.survWp.x, this.survWp.z, this.speed * 0.92);
-
-        // Simulate vanilla survival mining & progressive gear crafting over time
-        if (!this._survCraftTimer) this._survCraftTimer = 0;
-        this._survCraftTimer += dt;
-        if (this._survCraftTimer >= 8.0) {
-          this._survCraftTimer = 0;
-          this._survLevel = (this._survLevel || 0) + 1;
-          if (this._survLevel === 2) {
-            this.weaponTier = 'stone';
-          } else if (this._survLevel === 5) {
-            this.armorTier = 'chain';
-            this.weaponTier = 'iron';
-          } else if (this._survLevel === 9) {
-            this.armorTier = 'iron';
-            this.hasGapple = Math.min(3, (this.hasGapple || 0) + 1);
-            this.goldenApples = this.hasGapple;
-          } else if (this._survLevel === 14) {
-            this.weaponTier = 'diamond';
-            this.hasBow = true;
-          } else if (this._survLevel >= 18) {
-            this.armorTier = 'diamond';
-            this.hasGapple = Math.min(4, (this.hasGapple || 0) + 1);
-            this.goldenApples = this.hasGapple;
-          }
-          this.updateEquipmentVisuals();
-        }
-        break;
-      }
-
       case 'LOOT_CHEST': {
         if (window.game && window.game.currentMode === 'school_br') {
           if (!this.targetChest || this.targetChest.opened) {
@@ -3092,28 +2998,6 @@ class Bot {
             this.velocity.y = this.jumpForce;
             this.jumpCooldown = 0.6;
           }
-        }
-      }
-    }
-
-    // Survival War circular boundary & Duel Arena safety
-    if (window.game && window.game.currentMode === 'survival_war') {
-      const distXZ = Math.hypot(this.position.x, this.position.z);
-      if (!window.game.survivalDuelStarted) {
-        if (distXZ > 298.0) {
-          const scale = 298.0 / distXZ;
-          this.position.x *= scale;
-          this.position.z *= scale;
-        }
-      } else {
-        if (distXZ > 24.0) {
-          const scale = 24.0 / distXZ;
-          this.position.x *= scale;
-          this.position.z *= scale;
-        }
-        if (this.position.y < 47.0) {
-          this.position.set(0, 50, 0);
-          this.velocity.set(0, 0, 0);
         }
       }
     }
