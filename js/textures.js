@@ -1515,6 +1515,99 @@ const TextureGenerator = {
     ctx.fillRect(18, 19, 2, 2);
     ctx.fillRect(13, 22, 1, 1);
     ctx.fillRect(16, 24, 2, 2);
+  },
+
+  // --- Survival War Vanilla Textures ---
+  getOakLogSide() {
+    if (this.cache['oak_log_side']) return this.cache['oak_log_side'];
+    const { canvas, ctx } = this.createCanvas();
+    const barkColors = ['#6b5130', '#5a4224', '#4d371d', '#785c38'];
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 16; y++) {
+        ctx.fillStyle = barkColors[(x * 3 + y * 5 + Math.floor(Math.random() * 4)) % barkColors.length];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    ctx.fillStyle = '#3b2914';
+    [2, 6, 10, 14].forEach(x => {
+      ctx.fillRect(x, 0, 1, 16);
+    });
+    return (this.cache['oak_log_side'] = this.toThreeTexture(canvas));
+  },
+
+  getOakLogTop() {
+    if (this.cache['oak_log_top']) return this.cache['oak_log_top'];
+    const { canvas, ctx } = this.createCanvas();
+    ctx.fillStyle = '#5a4224';
+    ctx.fillRect(0, 0, 16, 16);
+    ctx.fillStyle = '#b8945f';
+    ctx.fillRect(2, 2, 12, 12);
+    ctx.fillStyle = '#9a7543';
+    ctx.fillRect(4, 4, 8, 8);
+    ctx.fillStyle = '#b8945f';
+    ctx.fillRect(6, 6, 4, 4);
+    ctx.fillStyle = '#785c38';
+    ctx.fillRect(7, 7, 2, 2);
+    return (this.cache['oak_log_top'] = this.toThreeTexture(canvas));
+  },
+
+  getOakLeaves() {
+    if (this.cache['oak_leaves']) return this.cache['oak_leaves'];
+    const { canvas, ctx } = this.createCanvas();
+    const leafColors = ['#3d7a22', '#4c942c', '#2e6118', '#5aa637'];
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 16; y++) {
+        ctx.fillStyle = leafColors[Math.floor(Math.random() * leafColors.length)];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    return (this.cache['oak_leaves'] = this.toThreeTexture(canvas));
+  },
+
+  getOreTexture(key, speckColors) {
+    if (this.cache[key]) return this.cache[key];
+    const { canvas, ctx } = this.createCanvas();
+    const stoneColors = ['#7c7c7c', '#6d6d6d', '#8c8c8c', '#5e5e5e'];
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 16; y++) {
+        ctx.fillStyle = stoneColors[Math.floor(Math.random() * stoneColors.length)];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    const spots = [[3, 3], [10, 4], [6, 8], [11, 10], [3, 12], [8, 13]];
+    spots.forEach(([sx, sy], idx) => {
+      ctx.fillStyle = speckColors[idx % speckColors.length];
+      ctx.fillRect(sx, sy, 2, 2);
+      ctx.fillStyle = speckColors[(idx + 1) % speckColors.length];
+      ctx.fillRect(sx + 1, sy, 1, 1);
+    });
+    return (this.cache[key] = this.toThreeTexture(canvas));
+  },
+
+  getSand() {
+    if (this.cache['sand']) return this.cache['sand'];
+    const { canvas, ctx } = this.createCanvas();
+    const colors = ['#e2d49a', '#d8c888', '#ede1ae', '#cbb979'];
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 16; y++) {
+        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    return (this.cache['sand'] = this.toThreeTexture(canvas));
+  },
+
+  getBedrock() {
+    if (this.cache['bedrock']) return this.cache['bedrock'];
+    const { canvas, ctx } = this.createCanvas();
+    const colors = ['#2b2b2b', '#444444', '#1a1a1a', '#555555'];
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 16; y++) {
+        ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    return (this.cache['bedrock'] = this.toThreeTexture(canvas));
   }
 };
 

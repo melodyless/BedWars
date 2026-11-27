@@ -38,7 +38,11 @@ class Player {
       iron: 0,
       gold: 0,
       diamond: 0,
-      emerald: 0
+      emerald: 0,
+      wood: 0,
+      cobble: 0,
+      coal: 0,
+      apple: 0
     };
 
     // Hotbar (9 slots)
@@ -243,6 +247,14 @@ class Player {
 
       if (e.code === 'KeyQ') {
         this.dropItem();
+        return;
+      }
+
+      if (e.code === 'KeyC') {
+        if (window.game && window.game.currentMode === 'survival_war' && window.shopManager) {
+          if (window.shopManager.isOpen) window.shopManager.closeShop();
+          else window.shopManager.openShop();
+        }
         return;
       }
 
@@ -651,16 +663,33 @@ class Player {
 
       // Determine mining time based on block and tool
       const held = this.hotbar[this.selectedSlot];
+      const heldId = held ? held.id : '';
+      const pickMult = heldId === 'pickaxe_diamond' ? 0.25
+        : heldId === 'pickaxe_iron' ? 0.35
+        : heldId === 'pickaxe_stone' ? 0.5
+        : heldId === 'pickaxe_wood' ? 0.65
+        : 1.0;
+
       if (block.type.startsWith('BED_')) {
         this.requiredMineTime = 0.8;
       } else if (block.type.includes('WOOL')) {
-        this.requiredMineTime = (held && held.id === 'shears') ? 0.1 : 0.35;
-      } else if (block.type === 'OAK_PLANKS') {
-        this.requiredMineTime = 0.9;
+        this.requiredMineTime = (heldId === 'shears') ? 0.1 : 0.35;
+      } else if (block.type === 'OAK_PLANKS' || block.type === 'OAK_LOG') {
+        this.requiredMineTime = (held && held.type === 'weapon') ? 0.45 : 0.65;
+      } else if (block.type === 'OAK_LEAVES') {
+        this.requiredMineTime = 0.15;
+      } else if (block.type === 'GRASS' || block.type === 'DIRT' || block.type === 'SAND') {
+        this.requiredMineTime = 0.3;
+      } else if (block.type === 'STONE' || block.type === 'COAL_ORE') {
+        this.requiredMineTime = 0.9 * pickMult;
+      } else if (block.type === 'IRON_ORE') {
+        this.requiredMineTime = 1.2 * pickMult;
+      } else if (block.type === 'GOLD_ORE' || block.type === 'DIAMOND_ORE') {
+        this.requiredMineTime = 1.5 * pickMult;
       } else if (block.type === 'END_STONE') {
-        this.requiredMineTime = 1.3;
+        this.requiredMineTime = 1.3 * pickMult;
       } else if (block.type === 'OBSIDIAN') {
-        this.requiredMineTime = 3.5;
+        this.requiredMineTime = 3.5 * pickMult;
       } else {
         this.requiredMineTime = 0.5;
       }
@@ -1615,8 +1644,11 @@ class Player {
       window.game.addChatMessage('§c玩家 被 蓝队人机 击杀了！');
     }
 
-    // Check if Red Bed is alive
-    if (this.world.bedStatus.red) {
+    // Check if Survival War (respawns during 10-min survival phase, eliminated in duel arena)
+    const isSurvivalRespawn = (window.game && window.game.currentMode === 'survival_war' && !window.game.survivalDuelStarted);
+
+    // Check if Red Bed is alive (or Survival phase respawn)
+    if (this.world.bedStatus.red || isSurvivalRespawn) {
       // Show respawn countdown
       this.respawnTimer = 5;
       const respawnEl = document.getElementById('respawn-overlay');
@@ -1638,6 +1670,39 @@ class Player {
       // Final kill! Red eliminated
       window.game.onFinalKill('red');
     }
+  }
+
+  onSurvivalBlockMined(blockType) {
+    if (!blockType) return;
+    if (blockType === 'OAK_LOG') {
+      this.resources.wood += 2;
+      this.addItem({ id: 'wood_planks', name: '橡木木板', type: 'block', blockType: 'OAK_PLANKS', count: 2 });
+      window.game.addChatMessage('§a+2 木材 & +2 橡木木板');
+    } else if (blockType === 'OAK_LEAVES') {
+      if (Math.random() < 0.25) {
+        this.resources.apple += 1;
+        window.game.addChatMessage('§c+1 苹果 §7(可用于回血或合成金苹果)');
+      }
+    } else if (blockType === 'STONE') {
+      this.resources.cobble += 1;
+    } else if (blockType === 'COAL_ORE') {
+      this.resources.coal += 1;
+      window.game.addChatMessage('§8+1 煤炭');
+    } else if (blockType === 'IRON_ORE') {
+      this.resources.iron += 1;
+      window.game.addChatMessage('§f+1 铁锭');
+    } else if (blockType === 'GOLD_ORE') {
+      this.resources.gold += 1;
+      window.game.addChatMessage('§6+1 金锭');
+    } else if (blockType === 'DIAMOND_ORE') {
+      this.resources.diamond += 1;
+      window.game.addChatMessage('§b+1 钻石！');
+    } else if (blockType === 'GRASS' || blockType === 'DIRT') {
+      this.addItem({ id: 'dirt_block', name: '泥土', type: 'block', blockType: 'DIRT', count: 1 });
+    } else if (blockType === 'SAND') {
+      this.addItem({ id: 'sand_block', name: '沙子', type: 'block', blockType: 'SAND', count: 1 });
+    }
+    this.updateHUD();
   }
 
   respawn() {
@@ -1679,7 +1744,11 @@ class Player {
 
       if (this.miningTimer >= this.requiredMineTime) {
         // Complete break
+        const minedType = this.miningBlock.type;
         this.world.removeBlock(this.miningBlock.x, this.miningBlock.y, this.miningBlock.z);
+        if (window.game && window.game.currentMode === 'survival_war') {
+          this.onSurvivalBlockMined(minedType);
+        }
         this.stopMining();
       }
     }
@@ -1792,6 +1861,28 @@ class Player {
 
     // 4. Collision Detection & Resolution with Voxel World
     this.moveWithCollision(dt);
+
+    // Survival War circular boundary & Duel Arena safety
+    if (window.game && window.game.currentMode === 'survival_war') {
+      const distXZ = Math.hypot(this.position.x, this.position.z);
+      if (!window.game.survivalDuelStarted) {
+        if (distXZ > 298.5) {
+          const scale = 298.5 / distXZ;
+          this.position.x *= scale;
+          this.position.z *= scale;
+        }
+      } else {
+        if (distXZ > 24.5) {
+          const scale = 24.5 / distXZ;
+          this.position.x *= scale;
+          this.position.z *= scale;
+        }
+        if (this.position.y < 47.0) {
+          this.position.set(0, 50, 0);
+          this.velocity.set(0, 0, 0);
+        }
+      }
+    }
 
     // 5. Void threshold check
     if (this.position.y < -18) {

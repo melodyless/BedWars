@@ -67,6 +67,49 @@ class ShopManager {
       ]
     };
 
+    // Vanilla Survival Crafting Recipes (used in survival_war mode)
+    this.survivalRecipes = {
+      weapons: [
+        { id: 'sword_wooden', name: '木剑 (伤害4)', type: 'weapon', damage: 4, costs: [{ res: 'wood', amount: 2 }] },
+        { id: 'sword_stone', name: '石剑 (伤害5)', type: 'weapon', damage: 5, costs: [{ res: 'cobble', amount: 2 }, { res: 'wood', amount: 1 }] },
+        { id: 'sword_iron', name: '铁剑 (伤害6)', type: 'weapon', damage: 6, costs: [{ res: 'iron', amount: 2 }, { res: 'wood', amount: 1 }] },
+        { id: 'sword_diamond', name: '钻石剑 (伤害7)', type: 'weapon', damage: 7, costs: [{ res: 'diamond', amount: 2 }, { res: 'wood', amount: 1 }] },
+        { id: 'mace', name: '重锤 (高空砸击)', type: 'weapon', weaponType: 'mace', damage: 6, costs: [{ res: 'diamond', amount: 5 }, { res: 'iron', amount: 4 }] },
+        { id: 'bow_normal', name: '猎弓', type: 'bow', bowType: 'normal', costs: [{ res: 'wood', amount: 3 }, { res: 'iron', amount: 2 }] },
+        { id: 'bow_power', name: '力量弓', type: 'bow', bowType: 'power', costs: [{ res: 'wood', amount: 3 }, { res: 'gold', amount: 4 }] },
+        { id: 'arrow_16', name: '箭矢 x16', type: 'arrow', count: 16, costs: [{ res: 'iron', amount: 1 }, { res: 'wood', amount: 2 }] }
+      ],
+      armor: [
+        { id: 'armor_chain', name: '锁链甲 (30%减伤)', type: 'armor', tier: 'chain', costs: [{ res: 'iron', amount: 5 }] },
+        { id: 'armor_iron', name: '铁盔甲 (50%减伤)', type: 'armor', tier: 'iron', costs: [{ res: 'iron', amount: 10 }] },
+        { id: 'armor_diamond', name: '钻石盔甲 (65%减伤)', type: 'armor', tier: 'diamond', costs: [{ res: 'diamond', amount: 8 }] }
+      ],
+      tools: [
+        { id: 'pickaxe_wood', name: '木镐 (提速挖石)', type: 'tool', count: 1, costs: [{ res: 'wood', amount: 3 }] },
+        { id: 'pickaxe_stone', name: '石镐 (快速挖铁)', type: 'tool', count: 1, costs: [{ res: 'cobble', amount: 3 }, { res: 'wood', amount: 1 }] },
+        { id: 'pickaxe_iron', name: '铁镐 (快速挖金钻)', type: 'tool', count: 1, costs: [{ res: 'iron', amount: 3 }, { res: 'wood', amount: 1 }] },
+        { id: 'pickaxe_diamond', name: '钻石镐 (极速挖矿)', type: 'tool', count: 1, costs: [{ res: 'diamond', amount: 3 }, { res: 'wood', amount: 1 }] }
+      ],
+      blocks: [
+        { id: 'wood_planks', name: '橡木木板 x16', type: 'block', blockType: 'OAK_PLANKS', count: 16, costs: [{ res: 'wood', amount: 2 }] },
+        { id: 'cobble_blocks', name: '圆石方块 x16', type: 'block', blockType: 'STONE', count: 16, costs: [{ res: 'cobble', amount: 4 }] },
+        { id: 'obsidian', name: '黑曜石 x4', type: 'block', blockType: 'OBSIDIAN', count: 4, costs: [{ res: 'diamond', amount: 2 }] }
+      ],
+      utilities: [
+        { id: 'heal_apple', name: '吃苹果 (立即回4血)', type: 'survival_heal', heal: 4, costs: [{ res: 'apple', amount: 1 }] },
+        { id: 'golden_apple', name: '金苹果', type: 'utility', count: 1, costs: [{ res: 'apple', amount: 1 }, { res: 'gold', amount: 4 }] },
+        { id: 'enchanted_golden_apple', name: '附魔金苹果', type: 'utility', count: 1, costs: [{ res: 'apple', amount: 1 }, { res: 'diamond', amount: 3 }, { res: 'gold', amount: 4 }] },
+        { id: 'smelt_iron', name: '熔炼铁锭 x1', type: 'survival_smelt', grantRes: 'iron', grantAmount: 1, costs: [{ res: 'coal', amount: 1 }, { res: 'cobble', amount: 3 }] },
+        { id: 'wind_charge', name: '风弹 x4', type: 'utility', projectileType: 'wind_charge', count: 4, costs: [{ res: 'gold', amount: 3 }] },
+        { id: 'ender_pearl', name: '末影珍珠 x1', type: 'utility', count: 1, costs: [{ res: 'diamond', amount: 2 }] }
+      ],
+      potions: [
+        { id: 'potion_speed', name: '迅捷药水 II (45秒)', type: 'potion', potionType: 'speed', duration: 45, costs: [{ res: 'gold', amount: 2 }, { res: 'coal', amount: 2 }] },
+        { id: 'potion_regen', name: '恢复药水 (30秒)', type: 'potion', potionType: 'regen', duration: 30, costs: [{ res: 'gold', amount: 3 }] }
+      ],
+      upgrades: []
+    };
+
     this.bindEvents();
   }
 
@@ -274,7 +317,19 @@ class ShopManager {
     if (!grid) return;
     grid.innerHTML = '';
 
-    const items = this.items[this.currentCategory] || [];
+    const isSurvival = (window.game && window.game.currentMode === 'survival_war');
+    const sourceMap = isSurvival ? this.survivalRecipes : this.items;
+    const resNames = {
+      iron: '铁', gold: '金', diamond: '钻', emerald: '绿',
+      wood: '木', cobble: '石', coal: '煤', apple: '苹果'
+    };
+
+    const items = sourceMap[this.currentCategory] || [];
+    if (items.length === 0 && isSurvival) {
+      grid.innerHTML = '<div style="color:#aaa; padding:20px; grid-column: 1/-1; text-align:center;">生存战争模式请切换【武器】【盔甲】【工具】【方块】【道具】进行原版合成升级！</div>';
+      return;
+    }
+
     items.forEach(item => {
       const card = document.createElement('div');
       card.className = 'shop-card';
@@ -293,14 +348,17 @@ class ShopManager {
 
       // Price Tag
       const priceTag = document.createElement('div');
-      priceTag.className = `card-price price-${item.currency}`;
-
-      const currencyName =
-        item.currency === 'iron' ? '铁锭' :
-        item.currency === 'gold' ? '金锭' :
-        item.currency === 'diamond' ? '钻石' : '绿宝石';
-
-      priceTag.innerText = `${item.price} ${currencyName}`;
+      if (item.costs) {
+        priceTag.className = 'card-price price-gold';
+        priceTag.innerText = item.costs.map(c => `${c.amount}${resNames[c.res] || c.res}`).join(' + ');
+      } else {
+        priceTag.className = `card-price price-${item.currency}`;
+        const currencyName =
+          item.currency === 'iron' ? '铁锭' :
+          item.currency === 'gold' ? '金锭' :
+          item.currency === 'diamond' ? '钻石' : '绿宝石';
+        priceTag.innerText = `${item.price} ${currencyName}`;
+      }
       card.appendChild(priceTag);
 
       // Click to purchase
@@ -311,23 +369,41 @@ class ShopManager {
   }
 
   buyItem(item) {
-    const userRes = this.player.resources[item.currency];
-    const currencyName =
-      item.currency === 'iron' ? '铁锭' :
-      item.currency === 'gold' ? '金锭' :
-      item.currency === 'diamond' ? '钻石' : '绿宝石';
+    const resNames = {
+      iron: '铁锭', gold: '金锭', diamond: '钻石', emerald: '绿宝石',
+      wood: '木材', cobble: '圆石', coal: '煤炭', apple: '苹果'
+    };
 
-    if (userRes < item.price) {
-      window.game.addChatMessage(`§c${currencyName}不足！还需要 ${item.price - userRes} 个${currencyName}。`);
-      return;
+    if (item.costs) {
+      for (const c of item.costs) {
+        const have = this.player.resources[c.res] || 0;
+        if (have < c.amount) {
+          window.game.addChatMessage(`§c${resNames[c.res] || c.res}不足！还需要 ${c.amount - have} 个。`);
+          return;
+        }
+      }
+      for (const c of item.costs) {
+        this.player.resources[c.res] -= c.amount;
+      }
+    } else {
+      const userRes = this.player.resources[item.currency];
+      const currencyName = resNames[item.currency] || '绿宝石';
+      if (userRes < item.price) {
+        window.game.addChatMessage(`§c${currencyName}不足！还需要 ${item.price - userRes} 个${currencyName}。`);
+        return;
+      }
+      this.player.resources[item.currency] -= item.price;
     }
-
-    // Deduct cost
-    this.player.resources[item.currency] -= item.price;
     window.soundManager.playBuy();
 
     // Grant item or upgrade
-    if (item.type === 'upgrade') {
+    if (item.type === 'survival_heal') {
+      this.player.health = Math.min(this.player.maxHealth, this.player.health + (item.heal || 4));
+      window.game.addChatMessage('§a吃下苹果，恢复了 4 点生命值！');
+    } else if (item.type === 'survival_smelt') {
+      this.player.resources[item.grantRes] = (this.player.resources[item.grantRes] || 0) + (item.grantAmount || 1);
+      window.game.addChatMessage(`§a熔炼成功：获得 ${item.grantAmount} 个${resNames[item.grantRes] || item.grantRes}！`);
+    } else if (item.type === 'upgrade') {
       const team = 'red';
       if (window.game && window.game.teamUpgrades && window.game.teamUpgrades[team]) {
         const tu = window.game.teamUpgrades[team];
