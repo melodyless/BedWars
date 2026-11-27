@@ -815,6 +815,63 @@ const TextureGenerator = {
       case 'wind_charge':
         this.drawPixelWindCharge(ctx);
         break;
+      case 'crafting_table':
+        ctx.fillStyle = '#9a7543';
+        ctx.fillRect(4, 4, 24, 24);
+        ctx.fillStyle = '#5c4627';
+        ctx.fillRect(4, 4, 24, 2);
+        ctx.fillRect(4, 12, 24, 2);
+        ctx.fillRect(4, 20, 24, 2);
+        ctx.fillRect(12, 4, 2, 24);
+        ctx.fillRect(20, 4, 2, 24);
+        break;
+      case 'furnace':
+        ctx.fillStyle = '#7c7c7c';
+        ctx.fillRect(4, 4, 24, 24);
+        ctx.fillStyle = '#1f1f1f';
+        ctx.fillRect(10, 8, 12, 6);
+        ctx.fillRect(10, 18, 12, 8);
+        ctx.fillStyle = '#f97316';
+        ctx.fillRect(12, 20, 8, 4);
+        break;
+      case 'pickaxe_stone':
+        this.drawPixelPickaxe(ctx, '#94a3b8');
+        break;
+      case 'cobble_blocks':
+        ctx.fillStyle = '#7c7c7c';
+        ctx.fillRect(4, 4, 24, 24);
+        ctx.fillStyle = '#555555';
+        ctx.fillRect(4, 14, 24, 2);
+        ctx.fillRect(15, 4, 2, 24);
+        break;
+      case 'dirt_block':
+        ctx.fillStyle = '#795438';
+        ctx.fillRect(4, 4, 24, 24);
+        break;
+      case 'sand_block':
+        ctx.fillStyle = '#e2d49a';
+        ctx.fillRect(4, 4, 24, 24);
+        break;
+      case 'heal_apple':
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(16, 17, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(16, 6, 4, 3);
+        break;
+      case 'smelt_iron':
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fillRect(7, 11, 18, 10);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(7, 19, 18, 3);
+        break;
+      case 'smelt_gold':
+        ctx.fillStyle = '#facc15';
+        ctx.fillRect(7, 11, 18, 10);
+        ctx.fillStyle = '#ca8a04';
+        ctx.fillRect(7, 19, 18, 3);
+        break;
       default:
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(6, 6, 20, 20);
@@ -1608,6 +1665,64 @@ const TextureGenerator = {
       }
     }
     return (this.cache['bedrock'] = this.toThreeTexture(canvas));
+  },
+
+  getCraftingTableTop() {
+    if (this.cache['ct_top']) return this.cache['ct_top'];
+    const { canvas, ctx } = this.createCanvas();
+    ctx.fillStyle = '#b8945f';
+    ctx.fillRect(0, 0, 16, 16);
+    ctx.fillStyle = '#5c4627';
+    ctx.fillRect(0, 0, 16, 1);
+    ctx.fillRect(0, 15, 16, 1);
+    ctx.fillRect(0, 0, 1, 16);
+    ctx.fillRect(15, 0, 1, 16);
+    ctx.fillRect(5, 1, 1, 14);
+    ctx.fillRect(10, 1, 1, 14);
+    ctx.fillRect(1, 5, 14, 1);
+    ctx.fillRect(1, 10, 14, 1);
+    return (this.cache['ct_top'] = this.toThreeTexture(canvas));
+  },
+
+  getCraftingTableSide() {
+    if (this.cache['ct_side']) return this.cache['ct_side'];
+    const { canvas, ctx } = this.createCanvas();
+    ctx.fillStyle = '#a98451';
+    ctx.fillRect(0, 0, 16, 16);
+    ctx.fillStyle = '#5c4627';
+    ctx.fillRect(0, 0, 16, 2);
+    ctx.fillRect(0, 14, 16, 2);
+    ctx.fillRect(3, 4, 3, 7);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillRect(9, 4, 4, 3);
+    ctx.fillStyle = '#5c4627';
+    ctx.fillRect(10, 7, 2, 5);
+    return (this.cache['ct_side'] = this.toThreeTexture(canvas));
+  },
+
+  getFurnaceFront(lit = false) {
+    const k = lit ? 'furnace_front_lit' : 'furnace_front';
+    if (this.cache[k]) return this.cache[k];
+    const { canvas, ctx } = this.createCanvas();
+    const stoneColors = ['#7c7c7c', '#6d6d6d', '#8c8c8c', '#5e5e5e'];
+    for (let x = 0; x < 16; x++) {
+      for (let y = 0; y < 16; y++) {
+        ctx.fillStyle = stoneColors[(x * 3 + y * 7) % stoneColors.length];
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+    // Top fuel/ore opening
+    ctx.fillStyle = '#1f1f1f';
+    ctx.fillRect(3, 3, 10, 4);
+    // Bottom fire chamber
+    ctx.fillRect(3, 9, 10, 5);
+    if (lit) {
+      ctx.fillStyle = '#f97316';
+      ctx.fillRect(4, 10, 8, 3);
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(6, 11, 4, 2);
+    }
+    return (this.cache[k] = this.toThreeTexture(canvas));
   }
 };
 

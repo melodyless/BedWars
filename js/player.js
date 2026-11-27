@@ -42,7 +42,9 @@ class Player {
       wood: 0,
       cobble: 0,
       coal: 0,
-      apple: 0
+      apple: 0,
+      raw_iron: 0,
+      raw_gold: 0
     };
 
     // Hotbar (9 slots)
@@ -251,9 +253,11 @@ class Player {
       }
 
       if (e.code === 'KeyC') {
-        if (window.game && window.game.currentMode === 'survival_war' && window.shopManager) {
-          if (window.shopManager.isOpen) window.shopManager.closeShop();
-          else window.shopManager.openShop();
+        if (window.game && window.game.currentMode === 'survival_war') {
+          if (window.survivalUI) {
+            if (window.survivalUI.isCraftingOpen || window.survivalUI.isFurnaceOpen) window.survivalUI.closeAll();
+            else window.survivalUI.openCrafting();
+          }
         }
         return;
       }
@@ -720,11 +724,21 @@ class Player {
       -Math.cos(this.yaw) * Math.cos(this.pitch)
     ).normalize();
 
-    // 1. Check SkyWars Chest interaction
+    // 1. Check SkyWars Chest / Crafting Table / Furnace interaction
     const chestRay = this.world.raycast(origin, dir, 4.5);
-    if (chestRay.hit && chestRay.block && chestRay.block.type === 'CHEST') {
-      this.openChest(chestRay.block.x, chestRay.block.y, chestRay.block.z);
-      return;
+    if (chestRay.hit && chestRay.block) {
+      if (chestRay.block.type === 'CHEST') {
+        this.openChest(chestRay.block.x, chestRay.block.y, chestRay.block.z);
+        return;
+      }
+      if (chestRay.block.type === 'CRAFTING_TABLE') {
+        if (window.survivalUI) window.survivalUI.openCrafting();
+        return;
+      }
+      if (chestRay.block.type === 'FURNACE') {
+        if (window.survivalUI) window.survivalUI.openFurnace(chestRay.block.x, chestRay.block.y, chestRay.block.z);
+        return;
+      }
     }
     if (!chestRay.hit || chestRay.block.type !== 'CHEST') {
       if (this.world.chests) {
@@ -1687,13 +1701,17 @@ class Player {
       this.resources.cobble += 1;
     } else if (blockType === 'COAL_ORE') {
       this.resources.coal += 1;
-      window.game.addChatMessage('§8+1 煤炭');
+      window.game.addChatMessage('§8+1 煤炭 §7(可用作熔炉燃料)');
     } else if (blockType === 'IRON_ORE') {
-      this.resources.iron += 1;
-      window.game.addChatMessage('§f+1 铁锭');
+      this.resources.raw_iron += 1;
+      window.game.addChatMessage('§f+1 粗铁矿 §7(放入熔炉可炼成铁锭)');
     } else if (blockType === 'GOLD_ORE') {
-      this.resources.gold += 1;
-      window.game.addChatMessage('§6+1 金锭');
+      this.resources.raw_gold += 1;
+      window.game.addChatMessage('§6+1 粗金矿 §7(放入熔炉可炼成金锭)');
+    } else if (blockType === 'CRAFTING_TABLE') {
+      this.addItem({ id: 'crafting_table', name: '工作台', type: 'block', blockType: 'CRAFTING_TABLE', count: 1 });
+    } else if (blockType === 'FURNACE') {
+      this.addItem({ id: 'furnace', name: '熔炉', type: 'block', blockType: 'FURNACE', count: 1 });
     } else if (blockType === 'DIAMOND_ORE') {
       this.resources.diamond += 1;
       window.game.addChatMessage('§b+1 钻石！');
@@ -1900,11 +1918,17 @@ class Player {
       ).normalize();
 
       const chestRay = this.world.raycast(origin, dir, 4.5);
-      const isChest = chestRay.hit && chestRay.block && chestRay.block.type === 'CHEST';
+      const hitType = chestRay.hit && chestRay.block ? chestRay.block.type : null;
       const isVillager = window.shopManager && window.shopManager.checkVillagerInteract(origin, dir);
 
-      if (isChest) {
+      if (hitType === 'CHEST') {
         hintEl.innerText = '📦 右键或轻点打开战利品箱子';
+        hintEl.style.display = 'block';
+      } else if (hitType === 'CRAFTING_TABLE') {
+        hintEl.innerText = '🔨 右键打开 3×3 工作台';
+        hintEl.style.display = 'block';
+      } else if (hitType === 'FURNACE') {
+        hintEl.innerText = '🔥 右键打开熔炉冶炼矿石';
         hintEl.style.display = 'block';
       } else if (isVillager) {
         hintEl.innerText = '右键点击打开商店';

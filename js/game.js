@@ -476,8 +476,9 @@ class BedwarsGame {
       this.player.hotbar = [
         { id: 'sword_wooden', name: '木剑', type: 'weapon', count: 1, damage: 4 },
         { id: 'pickaxe_wood', name: '木镐', type: 'tool', count: 1 },
+        { id: 'crafting_table', name: '工作台', type: 'block', blockType: 'CRAFTING_TABLE', count: 1 },
         { id: 'wood_planks', name: '橡木木板', type: 'block', blockType: 'OAK_PLANKS', count: 8 },
-        null, null, null, null, null, null
+        null, null, null, null, null
       ];
       this.player.updateHUD();
       this.player.updateHeldItemVisual();
@@ -1477,13 +1478,13 @@ class BedwarsGame {
               ⏳ 决斗场开启: <span style="color:#fff;">${m}:${s}</span>
             </div>
             <div style="font-size: 12px; color: #86efac; margin-bottom: 6px;">
-              🌲 阶段: 原版生存发育 (按 <b>C</b> 合成升级)
+              🌲 阶段: 原版生存 (按 <b>C</b>/右键工作台 · 右键熔炉炼矿)
             </div>
             <div style="font-size: 12px; color: #e2e8f0; line-height: 1.6;">
               🪵 木材: <b>${r.wood || 0}</b> &nbsp; 🪨 圆石: <b>${r.cobble || 0}</b><br>
-              ⚫ 煤炭: <b>${r.coal || 0}</b> &nbsp; ⚙️ 铁锭: <b>${r.iron || 0}</b><br>
-              🪙 金锭: <b>${r.gold || 0}</b> &nbsp; 💎 钻石: <b>${r.diamond || 0}</b><br>
-              🍎 苹果: <b>${r.apple || 0}</b>
+              ⚫ 煤炭: <b>${r.coal || 0}</b> &nbsp; 🪨 粗铁/粗金: <b>${r.raw_iron || 0}/${r.raw_gold || 0}</b><br>
+              ⚙️ 铁锭: <b>${r.iron || 0}</b> &nbsp; 🪙 金锭: <b>${r.gold || 0}</b><br>
+              💎 钻石: <b>${r.diamond || 0}</b> &nbsp; 🍎 苹果: <b>${r.apple || 0}</b>
             </div>
           `;
         } else {
@@ -1657,6 +1658,10 @@ class BedwarsGame {
           if (this.survivalDuelTimer <= 0) {
             this.startSurvivalDuelPhase();
           }
+        }
+
+        if (this.currentMode === 'survival_war' && window.survivalUI) {
+          window.survivalUI.updateFurnaces(dt);
         }
 
         // End Realm Boss initial awakening: 5 minutes (300 seconds) after match starts

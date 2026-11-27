@@ -136,6 +136,18 @@ class VoxelWorld {
     });
     this.materials['SAND'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getSand() });
     this.materials['BEDROCK'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getBedrock() });
+
+    const ctSide = new THREE.MeshLambertMaterial({ map: TextureGenerator.getCraftingTableSide() });
+    const ctTop = new THREE.MeshLambertMaterial({ map: TextureGenerator.getCraftingTableTop() });
+    this.materials['CRAFTING_TABLE'] = [
+      ctSide, ctSide, ctTop, this.materials['OAK_PLANKS'], ctSide, ctSide
+    ];
+
+    const fSide = this.materials['STONE'];
+    const fFront = new THREE.MeshLambertMaterial({ map: TextureGenerator.getFurnaceFront(false) });
+    this.materials['FURNACE'] = [
+      fSide, fSide, fSide, fSide, fFront, fSide
+    ];
   }
 
   getKey(x, y, z) {
@@ -161,6 +173,11 @@ class VoxelWorld {
     }
     if (this.chests) {
       this.chests.clear();
+    }
+    if (this.furnaces) {
+      this.furnaces.clear();
+    } else {
+      this.furnaces = new Map();
     }
   }
 
@@ -1968,7 +1985,7 @@ class VoxelWorld {
       if (i % 4 === 0) this.setBlock(ox, oy + 2, oz, oreType, true);
     }
 
-    // 4. Scatter 48 Survival Supply Chests across the wilderness
+    // 4. Scatter 48 Survival Supply Chests & 24 Survival Camps (Crafting Table + Furnace)
     for (let i = 0; i < 48; i++) {
       const angle = (i * 2.15 + 1.1) % (Math.PI * 2);
       const rad = 28 + ((i + 0.5) / 48) * (R - 45);
@@ -1977,7 +1994,17 @@ class VoxelWorld {
       const cy = this.getSurvivalHeight(cx, cz) + 1;
       this.setBlock(cx, cy, cz, 'CHEST', false);
       this.registerChest(cx, cy, cz, false, true);
+      if (i % 2 === 0) {
+        const cy2 = this.getSurvivalHeight(cx + 2, cz) + 1;
+        this.setBlock(cx + 2, cy2, cz, 'CRAFTING_TABLE', true);
+        const cy3 = this.getSurvivalHeight(cx + 3, cz) + 1;
+        this.setBlock(cx + 3, cy3, cz, 'FURNACE', true);
+      }
     }
+    // Central starter camp
+    const ch0 = this.getSurvivalHeight(0, 0) + 1;
+    this.setBlock(0, ch0, 0, 'CRAFTING_TABLE', true);
+    this.setBlock(1, this.getSurvivalHeight(1, 0) + 1, 0, 'FURNACE', true);
 
     // 5. Visual Circular World Border Cylinder at R = 300
     const borderGeo = new THREE.CylinderGeometry(R + 0.5, R + 0.5, 64, 72, 1, true);
