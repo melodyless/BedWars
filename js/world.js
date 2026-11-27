@@ -1916,10 +1916,8 @@ class VoxelWorld {
         let topType = 'GRASS';
         if (h >= 4) {
           const oreHash = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
-          if (oreHash < 0.03) topType = 'DIAMOND_ORE';
-          else if (oreHash < 0.07) topType = 'GOLD_ORE';
-          else if (oreHash < 0.14) topType = 'IRON_ORE';
-          else if (oreHash < 0.22) topType = 'COAL_ORE';
+          if (oreHash < 0.08) topType = 'IRON_ORE';
+          else if (oreHash < 0.18) topType = 'COAL_ORE';
           else topType = 'STONE';
         } else if (h === 0 && (Math.sin(x * 0.04) + Math.cos(z * 0.04)) > 1.15) {
           topType = 'SAND';
@@ -1966,17 +1964,16 @@ class VoxelWorld {
       }
     }
 
-    // 3. Scatter Surface Ore Outcrops (~160 veins of Coal, Iron, Gold, Diamond)
-    for (let i = 0; i < 160; i++) {
+    // 3. Scatter Surface Ore Outcrops (Coal & Iron only; Diamonds & Gold are deep in caves!)
+    for (let i = 0; i < 120; i++) {
       const angle = (i * 1.73205 + 0.5) % (Math.PI * 2);
-      const rad = 20 + Math.sqrt((i + 0.5) / 160) * (R - 28);
+      const rad = 20 + Math.sqrt((i + 0.5) / 120) * (R - 28);
       const ox = Math.round(Math.cos(angle) * rad);
       const oz = Math.round(Math.sin(angle) * rad);
       const oy = this.getSurvivalHeight(ox, oz);
 
-      const oreType = (i % 10 === 0) ? 'DIAMOND_ORE'
-        : (i % 5 === 0) ? 'GOLD_ORE'
-        : (i % 2 === 0) ? 'IRON_ORE'
+      const oreType = (i % 12 === 0) ? 'GOLD_ORE'
+        : (i % 3 === 0) ? 'IRON_ORE'
         : 'COAL_ORE';
 
       this.setBlock(ox, oy + 1, oz, oreType, true);
@@ -1985,26 +1982,30 @@ class VoxelWorld {
       if (i % 4 === 0) this.setBlock(ox, oy + 2, oz, oreType, true);
     }
 
-    // 4. Scatter 48 Survival Supply Chests & 24 Survival Camps (Crafting Table + Furnace)
-    for (let i = 0; i < 48; i++) {
+    // 4. Scatter 24 Survival Camps (Crafting Table + Furnace, NO free loot chests)
+    for (let i = 0; i < 24; i++) {
       const angle = (i * 2.15 + 1.1) % (Math.PI * 2);
-      const rad = 28 + ((i + 0.5) / 48) * (R - 45);
+      const rad = 28 + ((i + 0.5) / 24) * (R - 45);
       const cx = Math.round(Math.cos(angle) * rad);
       const cz = Math.round(Math.sin(angle) * rad);
-      const cy = this.getSurvivalHeight(cx, cz) + 1;
-      this.setBlock(cx, cy, cz, 'CHEST', false);
-      this.registerChest(cx, cy, cz, false, true);
-      if (i % 2 === 0) {
-        const cy2 = this.getSurvivalHeight(cx + 2, cz) + 1;
-        this.setBlock(cx + 2, cy2, cz, 'CRAFTING_TABLE', true);
-        const cy3 = this.getSurvivalHeight(cx + 3, cz) + 1;
-        this.setBlock(cx + 3, cy3, cz, 'FURNACE', true);
-      }
+      const cy2 = this.getSurvivalHeight(cx, cz) + 1;
+      this.setBlock(cx, cy2, cz, 'CRAFTING_TABLE', true);
+      const cy3 = this.getSurvivalHeight(cx + 1, cz) + 1;
+      this.setBlock(cx + 1, cy3, cz, 'FURNACE', true);
     }
     // Central starter camp
     const ch0 = this.getSurvivalHeight(0, 0) + 1;
     this.setBlock(0, ch0, 0, 'CRAFTING_TABLE', true);
     this.setBlock(1, this.getSurvivalHeight(1, 0) + 1, 0, 'FURNACE', true);
+
+    // 4.5 Generate 30 Natural Underground Caves with Coal, Iron, Gold & Diamond Veins
+    for (let i = 0; i < 30; i++) {
+      const angle = (i * 2.399963 + 0.8) % (Math.PI * 2);
+      const rad = 36 + Math.sqrt((i + 0.5) / 30) * (R - 62);
+      const cx = Math.round(Math.cos(angle) * rad);
+      const cz = Math.round(Math.sin(angle) * rad);
+      this.buildSurvivalCave(cx, cz, i);
+    }
 
     // 5. Visual Circular World Border Cylinder at R = 300
     const borderGeo = new THREE.CylinderGeometry(R + 0.5, R + 0.5, 64, 72, 1, true);
@@ -2021,6 +2022,73 @@ class VoxelWorld {
 
     // 6. Build Sky Duel Arena at (0, 48, 0) for the 10-minute 4-Team Final Battle!
     this.buildSurvivalDuelArena(0, 48, 0);
+  }
+
+  buildSurvivalCave(cx, cz, seed = 0) {
+    // 1. Stepped Cave Entrance Tunnel descending from surface to y = -4
+    const startY = this.getSurvivalHeight(cx, cz);
+    for (let step = 0; step <= 6; step++) {
+      const sx = cx + step;
+      const sy = Math.max(-4, startY - step);
+      for (let dz = -1; dz <= 1; dz++) {
+        this.setBlock(sx, sy - 1, cz + dz, 'STONE', true);
+        this.setBlock(sx, sy - 2, cz + dz, 'STONE', true);
+        for (let ay = sy; ay <= sy + 3; ay++) {
+          this.setBlock(sx, ay, cz + dz, 'AIR', false);
+        }
+        // Stone roof once underground
+        if (step >= 3 && sy + 4 <= this.getSurvivalHeight(sx, cz + dz)) {
+          this.setBlock(sx, sy + 4, cz + dz, 'STONE', true);
+        }
+      }
+      // Side walls
+      for (let ay = sy - 1; ay <= sy + 3; ay++) {
+        this.setBlock(sx, ay, cz - 2, 'STONE', true);
+        this.setBlock(sx, ay, cz + 2, 'STONE', true);
+      }
+    }
+
+    // 2. Underground Cavern Chamber at (cx + 10, -4..-1, cz), Radius 5
+    const midX = cx + 10;
+    const midZ = cz;
+    const cavR = 5;
+    for (let dx = -cavR - 1; dx <= cavR + 1; dx++) {
+      for (let dz = -cavR - 1; dz <= cavR + 1; dz++) {
+        const d = Math.hypot(dx, dz);
+        if (d > cavR + 1.3) continue;
+        const wx = midX + dx;
+        const wz = midZ + dz;
+        const isWall = d >= cavR - 0.3;
+
+        // Solid bedrock & stone floor
+        this.setBlock(wx, -6, wz, 'BEDROCK', false);
+        this.setBlock(wx, -5, wz, 'STONE', true);
+
+        for (let wy = -4; wy <= -1; wy++) {
+          if (isWall) {
+            // Keep tunnel mouth open at wx = cx + 6
+            if (wx <= cx + 6 && Math.abs(dz) <= 1) continue;
+            const h = Math.abs(Math.sin(wx * 19.3 + wy * 41.7 + wz * 11.1 + seed) * 43758.5) % 1;
+            let bType = 'STONE';
+            if (wy <= -3 && h < 0.14) bType = 'DIAMOND_ORE';
+            else if (wy <= -2 && h < 0.25) bType = 'GOLD_ORE';
+            else if (h < 0.42) bType = 'IRON_ORE';
+            else if (h < 0.58) bType = 'COAL_ORE';
+            this.setBlock(wx, wy, wz, bType, true);
+          } else {
+            this.setBlock(wx, wy, wz, 'AIR', false);
+          }
+        }
+        // Stone ceiling under surface
+        this.setBlock(wx, 0, wz, 'STONE', true);
+      }
+    }
+    // Natural cave glowstone & guaranteed diamond vein inside chamber
+    this.setBlock(midX, -1, midZ, 'GLOWSTONE', false);
+    this.setBlock(midX + 4, -4, midZ, 'DIAMOND_ORE', true);
+    this.setBlock(midX + 4, -3, midZ, 'DIAMOND_ORE', true);
+    this.setBlock(midX - 3, -4, midZ + 3, 'IRON_ORE', true);
+    this.setBlock(midX - 3, -4, midZ - 3, 'GOLD_ORE', true);
   }
 
   buildSurvivalDuelArena(cx, cy, cz) {
