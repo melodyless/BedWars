@@ -1998,7 +1998,8 @@ class VoxelWorld {
     this.setBlock(0, ch0, 0, 'CRAFTING_TABLE', true);
     this.setBlock(1, this.getSurvivalHeight(1, 0) + 1, 0, 'FURNACE', true);
 
-    // 4.5 Generate 30 Natural Underground Caves with Coal, Iron, Gold & Diamond Veins
+    // 4.5 Generate 30 Natural Underground Caves with clearly exposed surface entrances
+    this.buildSurvivalCave(12, 8, 99); // Starter cave visible near center
     for (let i = 0; i < 30; i++) {
       const angle = (i * 2.399963 + 0.8) % (Math.PI * 2);
       const rad = 36 + Math.sqrt((i + 0.5) / 30) * (R - 62);
@@ -2025,26 +2026,37 @@ class VoxelWorld {
   }
 
   buildSurvivalCave(cx, cz, seed = 0) {
-    // 1. Stepped Cave Entrance Tunnel descending from surface to y = -4
+    // 1. Open Surface Cave Mouth & Stepped Tunnel descending from surface to y = -4
     const startY = this.getSurvivalHeight(cx, cz);
     for (let step = 0; step <= 6; step++) {
       const sx = cx + step;
       const sy = Math.max(-4, startY - step);
       for (let dz = -1; dz <= 1; dz++) {
+        const localSurf = this.getSurvivalHeight(sx, cz + dz);
         this.setBlock(sx, sy - 1, cz + dz, 'STONE', true);
         this.setBlock(sx, sy - 2, cz + dz, 'STONE', true);
-        for (let ay = sy; ay <= sy + 3; ay++) {
+
+        // First 4 steps are open skyward so the cave mouth is 100% exposed on the surface!
+        const clearTop = (step <= 3) ? Math.max(sy + 4, localSurf + 3) : (sy + 3);
+        for (let ay = sy; ay <= clearTop; ay++) {
           this.setBlock(sx, ay, cz + dz, 'AIR', false);
         }
-        // Stone roof once underground
-        if (step >= 3 && sy + 4 <= this.getSurvivalHeight(sx, cz + dz)) {
+        // Underground tunnel roof for deeper steps (step >= 4)
+        if (step >= 4) {
           this.setBlock(sx, sy + 4, cz + dz, 'STONE', true);
         }
       }
-      // Side walls
-      for (let ay = sy - 1; ay <= sy + 3; ay++) {
-        this.setBlock(sx, ay, cz - 2, 'STONE', true);
-        this.setBlock(sx, ay, cz + 2, 'STONE', true);
+      // Visible rocky stone side walls & cave mouth arch
+      const wallTop = (step <= 3) ? Math.max(sy + 3, this.getSurvivalHeight(sx, cz) + 2) : (sy + 3);
+      for (let ay = sy - 1; ay <= wallTop; ay++) {
+        this.setBlock(sx, ay, cz - 2, (step === 1 && ay === wallTop) ? 'COAL_ORE' : 'STONE', true);
+        this.setBlock(sx, ay, cz + 2, (step === 2 && ay === wallTop) ? 'IRON_ORE' : 'STONE', true);
+      }
+      if (step === 2) {
+        const archY = Math.max(sy + 4, this.getSurvivalHeight(sx, cz) + 3);
+        for (let dz = -2; dz <= 2; dz++) {
+          this.setBlock(sx, archY, cz + dz, 'STONE', true);
+        }
       }
     }
 
@@ -2059,6 +2071,7 @@ class VoxelWorld {
         const wx = midX + dx;
         const wz = midZ + dz;
         const isWall = d >= cavR - 0.3;
+        const isTunnelMouth = (wx <= cx + 6 && Math.abs(dz) <= 1);
 
         // Solid bedrock & stone floor
         this.setBlock(wx, -6, wz, 'BEDROCK', false);
@@ -2066,8 +2079,7 @@ class VoxelWorld {
 
         for (let wy = -4; wy <= -1; wy++) {
           if (isWall) {
-            // Keep tunnel mouth open at wx = cx + 6
-            if (wx <= cx + 6 && Math.abs(dz) <= 1) continue;
+            if (isTunnelMouth) continue;
             const h = Math.abs(Math.sin(wx * 19.3 + wy * 41.7 + wz * 11.1 + seed) * 43758.5) % 1;
             let bType = 'STONE';
             if (wy <= -3 && h < 0.14) bType = 'DIAMOND_ORE';
@@ -2079,8 +2091,10 @@ class VoxelWorld {
             this.setBlock(wx, wy, wz, 'AIR', false);
           }
         }
-        // Stone ceiling under surface
-        this.setBlock(wx, 0, wz, 'STONE', true);
+        // Stone ceiling under surface (keep tunnel mouth clear!)
+        if (!isTunnelMouth) {
+          this.setBlock(wx, 0, wz, 'STONE', true);
+        }
       }
     }
     // Natural cave glowstone & guaranteed diamond vein inside chamber
