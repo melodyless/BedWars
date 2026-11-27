@@ -1137,10 +1137,11 @@ class Bot {
     const isAtPatrol = this.state === 'PATROL_BASE';
     const isAtFollow = this.state === 'FOLLOW_PLAYER' && player && this.position.distanceTo(player.position) < 4.0;
 
-    // Only exempt shop if bot just arrived (< 1.0s); if bot is idle > 1.0s at shop, watchdog MUST step in!
+    // Only exempt shop if bot just arrived (< 1.0s); also exempt active melee combat so bot never jumps in place while fighting
     const shopExempt = isAtShop && this.stateTimer < 1.0;
+    const isInMeleeCombat = (this.state === 'COMBAT' && this.currentTarget && this.currentTarget.pos && this.position.distanceTo(this.currentTarget.pos) < 4.2);
 
-    if (distMoved < 0.06 && !isAtGen && !shopExempt && !isAtDia && !isAtEme && !isAtPatrol && !isAtFollow && !this.isDead) {
+    if (distMoved < 0.06 && !isAtGen && !shopExempt && !isAtDia && !isAtEme && !isAtPatrol && !isAtFollow && !isInMeleeCombat && !this.isDead) {
       this.stuckTimer += dt;
       if (this.stuckTimer > 1.2) {
         // Only jump if bot has wool and is unstuck from small blocks; NEVER jump in place with 0 wool!
@@ -2764,9 +2765,9 @@ class Bot {
             this.strafeDir = (Math.random() < 0.65) ? -this.strafeDir : this.strafeDir;
           }
 
-          // Approach forward + Strafe sideways
-          const forwardWeight = curDist > 2.6 ? 0.85 : 0.25;
-          const strafeWeight = 0.5;
+          // Approach forward + Strafe sideways (back off slightly if too close so bots don't collide & jump in place)
+          const forwardWeight = curDist > 2.6 ? 0.85 : (curDist < 1.7 ? -0.25 : 0.15);
+          const strafeWeight = 0.65;
           const moveVx = (dirX * forwardWeight + perpX * this.strafeDir * strafeWeight) * this.sprintSpeed;
           const moveVz = (dirZ * forwardWeight + perpZ * this.strafeDir * strafeWeight) * this.sprintSpeed;
 
@@ -2775,12 +2776,12 @@ class Bot {
           this.targetYaw = Math.atan2(dx, dz);
         }
 
-        // 4. Pro Jump-Crit System (跳劈暴击)
-        // When approaching into 2.6 - 3.4 blocks and grounded, time a jump to hit on the way down!
-        if (curDist < 3.4 && curDist > 1.2 && this.onGround && this.jumpCooldown <= 0) {
-          if (Math.random() < this.critChance) {
-            this.velocity.y = this.jumpForce * 0.85;
-            this.jumpCooldown = this.difficulty === 'nightmare' ? 0.7 : 1.1;
+        // 4. Pro Jump-Crit System (跳劈暴击) — only while actively closing distance, never jump in place
+        const hSpd = Math.hypot(this.velocity.x, this.velocity.z);
+        if (curDist < 3.4 && curDist > 2.1 && hSpd > 2.5 && this.onGround && this.jumpCooldown <= 0) {
+          if (Math.random() < this.critChance * 0.05) {
+            this.velocity.y = this.jumpForce * 0.82;
+            this.jumpCooldown = this.difficulty === 'nightmare' ? 1.8 : 2.6;
           }
         }
 
@@ -3020,9 +3021,11 @@ class Bot {
           this.position.x = targetX;
         } else {
           this.velocity.x = 0;
-          if (this.onGround && this.jumpCooldown <= 0) {
+          // Only jump over low obstacles (< 2 blocks tall), never jump in place against tall arena walls
+          const wallTopClear = !this.world.isSolid(Math.floor(targetX + 0.5), Math.floor(this.position.y) + 2, Math.floor(this.position.z + 0.5));
+          if (wallTopClear && this.onGround && this.jumpCooldown <= 0) {
             this.velocity.y = this.jumpForce;
-            this.jumpCooldown = 0.6;
+            this.jumpCooldown = 0.8;
           }
         }
       }
@@ -3088,9 +3091,10 @@ class Bot {
           this.position.z = targetZ;
         } else {
           this.velocity.z = 0;
-          if (this.onGround && this.jumpCooldown <= 0) {
+          const wallTopClearZ = !this.world.isSolid(Math.floor(this.position.x + 0.5), Math.floor(this.position.y) + 2, Math.floor(targetZ + 0.5));
+          if (wallTopClearZ && this.onGround && this.jumpCooldown <= 0) {
             this.velocity.y = this.jumpForce;
-            this.jumpCooldown = 0.6;
+            this.jumpCooldown = 0.8;
           }
         }
       }

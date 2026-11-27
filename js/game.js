@@ -92,7 +92,7 @@ class BedwarsGame {
     this.isGameRunning = false;
     this.lastTime = performance.now();
     this.survivalDuelStarted = false;
-    this.survivalDuelTimer = 600;
+    this.survivalDuelTimer = 300;
 
     // Stats
     this.matchTime = 0;
@@ -327,7 +327,7 @@ class BedwarsGame {
     const isSurvivalWar = (mode === 'survival_war');
 
     this.survivalDuelStarted = false;
-    this.survivalDuelTimer = 600; // 10 minutes survival before 4-team duel
+    this.survivalDuelTimer = 300; // 5 minutes survival before 4-team duel
 
     this.generatorManager = new GeneratorManager(this.scene);
     this.generators = this.generatorManager; // Alias
@@ -906,7 +906,7 @@ class BedwarsGame {
       if (this.currentMode === 'survival_war') {
         this.addChatMessage('§a[生存战争] 16人已分散降临半径300格荒野地表！');
         this.addChatMessage('§e按照原版生存规则砍树、挖矿、搜箱升级，按 §bC §e打开原版合成台升级神装！');
-        this.addChatMessage('§610分钟后全员将分为 4 队传送进入高空决斗场决一胜负，最后存活队伍获胜！');
+        this.addChatMessage('§65分钟后全员将分为 4 队传送进入高空决斗场决一胜负，最后存活队伍获胜！');
       } else if (this.currentMode === 'school_br') {
         this.addChatMessage('§6[校园吃鸡 16人混战] 比赛正式开始！');
         this.addChatMessage('§e16人全随机散布操场与教学楼！快速搜箱抢装，下落跳劈双倍暴击！');
@@ -1114,8 +1114,8 @@ class BedwarsGame {
       window.soundManager.playDing(500);
       setTimeout(() => window.soundManager.playDing(900), 150);
     }
-    this.showBigBanner('§6★ 10分钟生存结束 · 4队决斗开启！ ★', '16人已分为 红/蓝/绿/黄 4队进入决斗场，最后存活队伍胜利！');
-    this.addChatMessage('§6★ 【生存战争】10分钟发育阶段结束！全员已分为 §c红 §9蓝 §a绿 §e黄 §64支4人小队传送进入高空决斗场！');
+    this.showBigBanner('§6★ 5分钟生存结束 · 4队决斗开启！ ★', '16人已分为 红/蓝/绿/黄 4队进入决斗场，最后存活队伍胜利！');
+    this.addChatMessage('§6★ 【生存战争】5分钟发育阶段结束！全员已分为 §c红 §9蓝 §a绿 §e黄 §64支4人小队传送进入高空决斗场！');
     this.addChatMessage('§e决斗场内无法复活，最后存活下来的一组获得最终胜利！');
     this.updateScoreboard();
   }
@@ -1644,12 +1644,12 @@ class BedwarsGame {
       if (this.isGameRunning) {
         this.matchTime += dt;
 
-        // Survival War 10-minute (600s) Survival -> 4-Team Duel Arena Transition
+        // Survival War 5-minute (300s) Survival -> 4-Team Duel Arena Transition
         if (this.currentMode === 'survival_war' && !this.survivalDuelStarted) {
           const prevSec = Math.ceil(this.survivalDuelTimer);
           this.survivalDuelTimer -= dt;
           const curSec = Math.ceil(this.survivalDuelTimer);
-          if (curSec !== prevSec && (curSec === 300 || curSec === 60 || curSec === 10 || (curSec <= 5 && curSec >= 1))) {
+          if (curSec !== prevSec && (curSec === 180 || curSec === 60 || curSec === 10 || (curSec <= 5 && curSec >= 1))) {
             this.addChatMessage(`§e[生存战争] 距离 4 队决斗场开启还有 §c${curSec} §e秒！`);
             if (window.soundManager && typeof window.soundManager.playBeep === 'function') {
               window.soundManager.playBeep();
