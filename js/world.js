@@ -114,6 +114,28 @@ class VoxelWorld {
     this.materials['CHEST'] = [
       chestSide, chestSide, chestTop, chestBottom, chestFront, chestSide
     ];
+
+    // Survival War Vanilla Materials
+    const oakLogSide = new THREE.MeshLambertMaterial({ map: TextureGenerator.getOakLogSide() });
+    const oakLogTop = new THREE.MeshLambertMaterial({ map: TextureGenerator.getOakLogTop() });
+    this.materials['OAK_LOG'] = [
+      oakLogSide, oakLogSide, oakLogTop, oakLogTop, oakLogSide, oakLogSide
+    ];
+    this.materials['OAK_LEAVES'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getOakLeaves() });
+    this.materials['COAL_ORE'] = new THREE.MeshLambertMaterial({
+      map: TextureGenerator.getOreTexture('coal_ore', ['#1f1f1f', '#323232'])
+    });
+    this.materials['IRON_ORE'] = new THREE.MeshLambertMaterial({
+      map: TextureGenerator.getOreTexture('iron_ore', ['#d8af93', '#a67b5b'])
+    });
+    this.materials['GOLD_ORE'] = new THREE.MeshLambertMaterial({
+      map: TextureGenerator.getOreTexture('gold_ore', ['#fcee4b', '#d9a416'])
+    });
+    this.materials['DIAMOND_ORE'] = new THREE.MeshLambertMaterial({
+      map: TextureGenerator.getOreTexture('diamond_ore', ['#4deeea', '#1aa8a4'])
+    });
+    this.materials['SAND'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getSand() });
+    this.materials['BEDROCK'] = new THREE.MeshLambertMaterial({ map: TextureGenerator.getBedrock() });
   }
 
   getKey(x, y, z) {
@@ -121,6 +143,10 @@ class VoxelWorld {
   }
 
   clear() {
+    if (this.borderMesh) {
+      this.scene.remove(this.borderMesh);
+      this.borderMesh = null;
+    }
     if (this.instancedMeshes) {
       for (const im of this.instancedMeshes) {
         this.scene.remove(im);
@@ -277,7 +303,27 @@ class VoxelWorld {
       { x: b.x, y: b.y, z: b.z + 1 }, { x: b.x, y: b.y, z: b.z - 1 }
     ];
     for (const n of neighbors) {
-      const nb = this.getBlock(n.x, n.y, n.z);
+      let nb = this.getBlock(n.x, n.y, n.z);
+      // Lazy underground generation for Survival War 300-radius terrain
+      if (!nb && this.mapType === 'survival' && n.y >= -6 && n.y < 16 && (n.x * n.x + n.z * n.z <= 300 * 300)) {
+        const surfH = this.getSurvivalHeight(n.x, n.z);
+        if (n.y < surfH) {
+          let ugType = 'STONE';
+          let ugBreak = true;
+          if (n.y === -6) {
+            ugType = 'BEDROCK';
+            ugBreak = false;
+          } else {
+            const r = Math.abs(Math.sin(n.x * 12.9898 + n.y * 78.233 + n.z * 37.719) * 43758.5453) % 1;
+            if (n.y <= -2 && r < 0.035) ugType = 'DIAMOND_ORE';
+            else if (n.y <= 0 && r < 0.075) ugType = 'GOLD_ORE';
+            else if (r < 0.14) ugType = 'IRON_ORE';
+            else if (r < 0.22) ugType = 'COAL_ORE';
+          }
+          this.setBlock(n.x, n.y, n.z, ugType, ugBreak);
+          continue;
+        }
+      }
       if (nb && nb.hidden && !nb.mesh) {
         nb.hidden = false;
         let mat = this.materials[nb.type] || this.materials['STONE'];
@@ -759,7 +805,9 @@ class VoxelWorld {
 
     this.isGenerating = true;
 
-    if (mode === 'school_br' || mapType === 'school') {
+    if (mode === 'survival_war' || mapType === 'survival') {
+      this.generateSurvivalWorld();
+    } else if (mode === 'school_br' || mapType === 'school') {
       this.generateSchoolMap();
     } else if (mode === 'pvp_1v1' || mapType === 'arena') {
       this.generatePvPArena();
@@ -1822,6 +1870,178 @@ class VoxelWorld {
     }
 
     return { hit: false };
+  }
+
+  // =========================================================
+  // 5. Survival War: Radius 300 Circular World + Sky Duel Arena
+  // =========================================================
+  getSurvivalHeight(x, z) {
+    // Smooth deterministic rolling hills from y=0 to y=5
+    const n1 = Math.sin(x * 0.035) * Math.cos(z * 0.035);
+    const n2 = Math.sin((x + z) * 0.018) * 1.4;
+    const n3 = Math.cos(x * 0.07 - z * 0.06) * 0.8;
+    return Math.max(0, Math.min(5, Math.round(1.6 + n1 * 1.6 + n2 + n3)));
+  }
+
+  generateSurvivalWorld() {
+    this.bedStatus = { red: false, blue: false, green: false, yellow: false };
+    const R = 300;
+    const R2 = R * R;
+
+    // 1. Generate Circular Natural Terrain (Radius = 300)
+    // Surface-only + cliff-wall filling for ultra-fast load (~282k columns)
+    for (let x = -R; x <= R; x++) {
+      const x2 = x * x;
+      for (let z = -R; z <= R; z++) {
+        if (x2 + z * z > R2) continue;
+
+        const h = this.getSurvivalHeight(x, z);
+        let topType = 'GRASS';
+        if (h >= 4) {
+          const oreHash = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
+          if (oreHash < 0.03) topType = 'DIAMOND_ORE';
+          else if (oreHash < 0.07) topType = 'GOLD_ORE';
+          else if (oreHash < 0.14) topType = 'IRON_ORE';
+          else if (oreHash < 0.22) topType = 'COAL_ORE';
+          else topType = 'STONE';
+        } else if (h === 0 && (Math.sin(x * 0.04) + Math.cos(z * 0.04)) > 1.15) {
+          topType = 'SAND';
+        }
+
+        this.setBlock(x, h, z, topType, true);
+
+        // Fill vertical cliff sides so hills have zero gaps
+        const minNeighborH = Math.min(
+          this.getSurvivalHeight(x + 1, z),
+          this.getSurvivalHeight(x - 1, z),
+          this.getSurvivalHeight(x, z + 1),
+          this.getSurvivalHeight(x, z - 1)
+        );
+        for (let fy = Math.max(0, minNeighborH); fy < h; fy++) {
+          this.setBlock(x, fy, z, h >= 4 ? 'STONE' : 'DIRT', true);
+        }
+      }
+    }
+
+    // 2. Scatter Oak Trees (~420 trees) across the 300-radius circle
+    const treeCount = 420;
+    for (let i = 0; i < treeCount; i++) {
+      const angle = (i * 2.399963) % (Math.PI * 2); // Golden angle distribution
+      const rad = 18 + Math.sqrt((i + 0.5) / treeCount) * (R - 26);
+      const tx = Math.round(Math.cos(angle) * rad);
+      const tz = Math.round(Math.sin(angle) * rad);
+      const ty = this.getSurvivalHeight(tx, tz);
+      if (ty >= 4) continue; // Keep rocky peaks clear for ores
+
+      const trunkH = 4 + (i % 2);
+      for (let y = 1; y <= trunkH; y++) {
+        this.setBlock(tx, ty + y, tz, 'OAK_LOG', true);
+      }
+      for (let lx = -2; lx <= 2; lx++) {
+        for (let lz = -2; lz <= 2; lz++) {
+          for (let ly = trunkH - 1; ly <= trunkH + 1; ly++) {
+            if (Math.abs(lx) === 2 && Math.abs(lz) === 2 && ly !== trunkH) continue;
+            if (ly === trunkH + 1 && (Math.abs(lx) > 1 || Math.abs(lz) > 1)) continue;
+            if (lx === 0 && lz === 0 && ly <= trunkH) continue;
+            this.setBlock(tx + lx, ty + ly, tz + lz, 'OAK_LEAVES', true);
+          }
+        }
+      }
+    }
+
+    // 3. Scatter Surface Ore Outcrops (~160 veins of Coal, Iron, Gold, Diamond)
+    for (let i = 0; i < 160; i++) {
+      const angle = (i * 1.73205 + 0.5) % (Math.PI * 2);
+      const rad = 20 + Math.sqrt((i + 0.5) / 160) * (R - 28);
+      const ox = Math.round(Math.cos(angle) * rad);
+      const oz = Math.round(Math.sin(angle) * rad);
+      const oy = this.getSurvivalHeight(ox, oz);
+
+      const oreType = (i % 10 === 0) ? 'DIAMOND_ORE'
+        : (i % 5 === 0) ? 'GOLD_ORE'
+        : (i % 2 === 0) ? 'IRON_ORE'
+        : 'COAL_ORE';
+
+      this.setBlock(ox, oy + 1, oz, oreType, true);
+      this.setBlock(ox + 1, oy + 1, oz, 'STONE', true);
+      this.setBlock(ox, oy + 1, oz + 1, (i % 3 === 0) ? oreType : 'STONE', true);
+      if (i % 4 === 0) this.setBlock(ox, oy + 2, oz, oreType, true);
+    }
+
+    // 4. Scatter 48 Survival Supply Chests across the wilderness
+    for (let i = 0; i < 48; i++) {
+      const angle = (i * 2.15 + 1.1) % (Math.PI * 2);
+      const rad = 28 + ((i + 0.5) / 48) * (R - 45);
+      const cx = Math.round(Math.cos(angle) * rad);
+      const cz = Math.round(Math.sin(angle) * rad);
+      const cy = this.getSurvivalHeight(cx, cz) + 1;
+      this.setBlock(cx, cy, cz, 'CHEST', false);
+      this.registerChest(cx, cy, cz, false, true);
+    }
+
+    // 5. Visual Circular World Border Cylinder at R = 300
+    const borderGeo = new THREE.CylinderGeometry(R + 0.5, R + 0.5, 64, 72, 1, true);
+    const borderMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    this.borderMesh = new THREE.Mesh(borderGeo, borderMat);
+    this.borderMesh.position.set(0, 26, 0);
+    this.scene.add(this.borderMesh);
+
+    // 6. Build Sky Duel Arena at (0, 48, 0) for the 10-minute 4-Team Final Battle!
+    this.buildSurvivalDuelArena(0, 48, 0);
+  }
+
+  buildSurvivalDuelArena(cx, cy, cz) {
+    const arenaR = 26;
+    const wallH = 6;
+
+    for (let x = -arenaR; x <= arenaR; x++) {
+      for (let z = -arenaR; z <= arenaR; z++) {
+        const d = Math.hypot(x, z);
+        if (d > arenaR + 0.5) continue;
+
+        // Solid Arena Floor (Unbreakable)
+        let floorType = 'STONE_BRICK';
+        if (d < 5) floorType = 'OBSIDIAN';
+        else if (Math.abs(x) <= 2 && z > 15) floorType = 'RED_WOOL';
+        else if (Math.abs(x) <= 2 && z < -15) floorType = 'BLUE_WOOL';
+        else if (Math.abs(z) <= 2 && x > 15) floorType = 'GREEN_WOOL';
+        else if (Math.abs(z) <= 2 && x < -15) floorType = 'YELLOW_WOOL';
+        else if ((Math.abs(x) + Math.abs(z)) % 6 === 0) floorType = 'MOSSY_STONE_BRICK';
+
+        this.setBlock(cx + x, cy, cz + z, floorType, false);
+
+        // Perimeter Walls (prevent falling out during 4-team duel)
+        if (d >= arenaR - 1.2) {
+          for (let y = 1; y <= wallH; y++) {
+            const wType = (y === wallH) ? 'OBSIDIAN' : (y >= 3 && y <= 4 && (x + z) % 3 === 0 ? 'GLASS' : 'STONE_BRICK');
+            this.setBlock(cx + x, cy + y, cz + z, wType, false);
+          }
+        }
+      }
+    }
+
+    // 4 Tactical Cover Pillars + Glowstone Lighting inside Arena
+    const pillars = [
+      [9, 9], [9, -9], [-9, 9], [-9, -9],
+      [0, 11], [0, -11], [11, 0], [-11, 0]
+    ];
+    for (const [px, pz] of pillars) {
+      for (let y = 1; y <= 3; y++) {
+        this.setBlock(cx + px, cy + y, cz + pz, y === 3 ? 'GLOWSTONE' : 'STONE_BRICK', false);
+      }
+    }
+    // Central Dais
+    for (let x = -2; x <= 2; x++) {
+      for (let z = -2; z <= 2; z++) {
+        this.setBlock(cx + x, cy + 1, cz + z, (x === 0 && z === 0) ? 'GLOWSTONE' : 'QUARTZ', false);
+      }
+    }
   }
 }
 
