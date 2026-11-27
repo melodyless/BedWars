@@ -31,7 +31,8 @@ class Player {
     // Stats
     this.maxHealth = 20;
     this.health = 20;
-    this.armorTier = 'none'; // 'none', 'chain', 'iron', 'diamond'
+    this.armorTier = 'none'; // 'none', 'chain', 'iron', 'iron_diamond', 'diamond'
+    this.armorSlots = { helmet: 'none', chestplate: 'none', leggings: 'none', boots: 'none' };
 
     // Resources
     this.resources = {
@@ -1601,14 +1602,49 @@ class Player {
     return false;
   }
 
+  getArmorStats() {
+    const slotPts = {
+      helmet: { none: 0, chain: 1, iron: 2, diamond: 3 },
+      chestplate: { none: 0, chain: 3, iron: 6, diamond: 8 },
+      leggings: { none: 0, chain: 2, iron: 5, diamond: 6 },
+      boots: { none: 0, chain: 1, iron: 2, diamond: 3 }
+    };
+    const s = this.armorSlots;
+    if (s && (s.helmet !== 'none' || s.chestplate !== 'none' || s.leggings !== 'none' || s.boots !== 'none')) {
+      const pts =
+        (slotPts.helmet[s.helmet] || 0) +
+        (slotPts.chestplate[s.chestplate] || 0) +
+        (slotPts.leggings[s.leggings] || 0) +
+        (slotPts.boots[s.boots] || 0);
+      const reduction = Math.min(0.65, (pts / 20) * 0.65);
+      const icons = Math.max(1, Math.min(10, Math.round(pts / 2)));
+      const mats = Object.values(s).filter(v => v !== 'none');
+      const hasIron = mats.includes('iron');
+      const hasDia = mats.includes('diamond');
+      const label = (hasIron && hasDia) ? '铁钻混搭甲'
+        : hasDia ? '钻石甲'
+        : hasIron ? '铁盔甲'
+        : '锁链甲';
+      return { reduction, icons, label: `${label} (${Math.round(reduction * 100)}%减伤)` };
+    }
+    if (this.armorTier === 'chain') return { reduction: 0.30, icons: 3, label: '锁链甲 (30%减伤)' };
+    if (this.armorTier === 'iron') return { reduction: 0.50, icons: 7, label: '铁盔甲 (50%减伤)' };
+    if (this.armorTier === 'iron_diamond') return { reduction: 0.58, icons: 8, label: '铁钻复合甲 (58%减伤)' };
+    if (this.armorTier === 'diamond') return { reduction: 0.65, icons: 10, label: '钻石甲 (65%减伤)' };
+    return { reduction: 0, icons: 0, label: '无护甲 (0%减伤)' };
+  }
+
+  equipArmorPiece(slot, tier) {
+    if (!this.armorSlots) this.armorSlots = { helmet: 'none', chestplate: 'none', leggings: 'none', boots: 'none' };
+    this.armorSlots[slot] = tier;
+    this.updateHUD();
+  }
+
   takeDamage(amount, knockbackDir = null) {
     if (this.isDead) return;
 
     // Apply armor reduction
-    let reduction = 0;
-    if (this.armorTier === 'chain') reduction = 0.3;
-    else if (this.armorTier === 'iron') reduction = 0.5;
-    else if (this.armorTier === 'diamond') reduction = 0.65;
+    let reduction = this.getArmorStats().reduction;
 
     const protLevel = (window.game && window.game.teamUpgrades && window.game.teamUpgrades.red) ? window.game.teamUpgrades.red.protection : 0;
     reduction = Math.min(0.85, reduction + protLevel * 0.15);
@@ -2211,10 +2247,7 @@ class Player {
     if (armorEl) {
       let armorHtml = '';
       const totalIcons = 10;
-      let filled = 0;
-      if (this.armorTier === 'chain') filled = 3;
-      else if (this.armorTier === 'iron') filled = 6;
-      else if (this.armorTier === 'diamond') filled = 10;
+      const filled = this.getArmorStats().icons;
 
       for (let i = 1; i <= totalIcons; i++) {
         if (i <= filled) {
@@ -2783,8 +2816,7 @@ class Player {
     // 1. Status Bar
     const armorStat = document.getElementById('bp-armor-stat');
     if (armorStat) {
-      const tierNames = { none: '无护甲 (0%减伤)', chain: '锁链甲 (30%减伤)', iron: '铁盔甲 (50%减伤)', diamond: '钻石甲 (65%减伤)' };
-      armorStat.innerHTML = `🛡️ 盔甲等级: <span>${tierNames[this.armorTier] || this.armorTier}</span>`;
+      armorStat.innerHTML = `🛡️ 盔甲等级: <span>${this.getArmorStats().label}</span>`;
     }
     const healthStat = document.getElementById('bp-health-stat');
     if (healthStat) {

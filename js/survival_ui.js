@@ -82,19 +82,49 @@
       costs: [{ res: 'diamond', amount: 2 }, { res: 'wood', amount: 1 }]
     },
     {
-      id: 'armor_chain', name: '锁链甲 (30%减伤)', type: 'armor', tier: 'chain',
-      pattern: ['iron', null, 'iron', 'iron', 'iron', 'iron', 'iron', 'iron', 'iron'],
+      id: 'iron_helmet', name: '铁头盔 (+10%护甲)', type: 'armor_piece', slot: 'helmet', tier: 'iron',
+      pattern: ['iron', 'iron', 'iron', 'iron', null, 'iron', null, null, null],
       costs: [{ res: 'iron', amount: 5 }]
     },
     {
-      id: 'armor_iron', name: '铁盔甲 (50%减伤)', type: 'armor', tier: 'iron',
+      id: 'iron_chestplate', name: '铁胸甲 (+20%护甲)', type: 'armor_piece', slot: 'chestplate', tier: 'iron',
       pattern: ['iron', null, 'iron', 'iron', 'iron', 'iron', 'iron', 'iron', 'iron'],
       costs: [{ res: 'iron', amount: 8 }]
     },
     {
-      id: 'armor_diamond', name: '钻石盔甲 (65%减伤)', type: 'armor', tier: 'diamond',
+      id: 'iron_leggings', name: '铁护腿 (+16%护甲)', type: 'armor_piece', slot: 'leggings', tier: 'iron',
+      pattern: ['iron', 'iron', 'iron', 'iron', null, 'iron', 'iron', null, 'iron'],
+      costs: [{ res: 'iron', amount: 7 }]
+    },
+    {
+      id: 'iron_boots', name: '铁靴子 (+6%护甲)', type: 'armor_piece', slot: 'boots', tier: 'iron',
+      pattern: [null, null, null, 'iron', null, 'iron', 'iron', null, 'iron'],
+      costs: [{ res: 'iron', amount: 4 }]
+    },
+    {
+      id: 'diamond_helmet', name: '钻石头盔 (+10%护甲)', type: 'armor_piece', slot: 'helmet', tier: 'diamond',
+      pattern: ['diamond', 'diamond', 'diamond', 'diamond', null, 'diamond', null, null, null],
+      costs: [{ res: 'diamond', amount: 5 }]
+    },
+    {
+      id: 'diamond_chestplate', name: '钻石胸甲 (+26%护甲)', type: 'armor_piece', slot: 'chestplate', tier: 'diamond',
       pattern: ['diamond', null, 'diamond', 'diamond', 'diamond', 'diamond', 'diamond', 'diamond', 'diamond'],
       costs: [{ res: 'diamond', amount: 8 }]
+    },
+    {
+      id: 'diamond_leggings', name: '钻石护腿 (+20%护甲)', type: 'armor_piece', slot: 'leggings', tier: 'diamond',
+      pattern: ['diamond', 'diamond', 'diamond', 'diamond', null, 'diamond', 'diamond', null, 'diamond'],
+      costs: [{ res: 'diamond', amount: 7 }]
+    },
+    {
+      id: 'diamond_boots', name: '钻石靴子 (+10%护甲)', type: 'armor_piece', slot: 'boots', tier: 'diamond',
+      pattern: [null, null, null, 'diamond', null, 'diamond', 'diamond', null, 'diamond'],
+      costs: [{ res: 'diamond', amount: 4 }]
+    },
+    {
+      id: 'armor_iron_diamond', name: '铁钻复合甲 (58%减伤)', type: 'armor', tier: 'iron_diamond',
+      pattern: ['diamond', null, 'diamond', 'iron', 'diamond', 'iron', 'iron', 'diamond', 'iron'],
+      costs: [{ res: 'iron', amount: 4 }, { res: 'diamond', amount: 4 }]
     },
     {
       id: 'mace', name: '重锤 (高空砸击)', type: 'weapon', weaponType: 'mace', damage: 6,
@@ -424,7 +454,11 @@
       }
       if (window.soundManager) window.soundManager.playBuy();
 
-      if (r.type === 'armor') {
+      if (r.type === 'armor_piece') {
+        p.equipArmorPiece(r.slot, r.tier);
+        window.game.addChatMessage(`§a成功合成并装备 ${r.name}！当前护甲：${p.getArmorStats().label}`);
+      } else if (r.type === 'armor') {
+        p.armorSlots = { helmet: 'none', chestplate: 'none', leggings: 'none', boots: 'none' };
         p.armorTier = r.tier;
         window.game.addChatMessage(`§a成功合成并装备 ${r.name}！`);
       } else {
