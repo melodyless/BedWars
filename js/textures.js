@@ -872,6 +872,25 @@ const TextureGenerator = {
         ctx.fillStyle = '#ca8a04';
         ctx.fillRect(7, 19, 18, 3);
         break;
+      case 'gun_rifle':
+      case 'gun_sniper':
+      case 'gun_shotgun':
+      case 'gun_smg':
+      case 'gun_rpg': {
+        const gunColors = {
+          gun_rifle: '#f59e0b',
+          gun_sniper: '#22c55e',
+          gun_shotgun: '#ef4444',
+          gun_smg: '#38bdf8',
+          gun_rpg: '#a855f7'
+        };
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(4, 12, 22, 6);
+        ctx.fillStyle = gunColors[type];
+        ctx.fillRect(10, 18, 5, 8);
+        ctx.fillRect(22, 13, 6, 4);
+        break;
+      }
       default:
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(6, 6, 20, 20);

@@ -86,6 +86,16 @@ class BedwarsGame {
         ambientInt: 0.78,
         sun: 0xfff8e7,
         sunInt: 0.92
+      },
+      gun_arena: {
+        name: '掩体枪战广场',
+        sky: 0x7dd3fc,
+        fog: 0x93c5fd,
+        fogDensity: 0.0040,
+        ambient: 0xffffff,
+        ambientInt: 0.82,
+        sun: 0xfffbeb,
+        sunInt: 0.95
       }
     };
 
@@ -186,7 +196,9 @@ class BedwarsGame {
     const startBtn = document.getElementById('start-btn');
     if (!startBtn) return;
     let modeName = '经典单挑 1v1';
-    if (this.selectedMode === 'survival_war') {
+    if (this.selectedMode === 'gun_battle') {
+      modeName = '🔫 方块枪战 8v8 抢点';
+    } else if (this.selectedMode === 'survival_war') {
       modeName = '🌲 生存战争 16人4队决战';
     } else if (this.selectedMode === 'school_br') {
       modeName = '🐔 校园吃鸡 16人混战';
@@ -249,7 +261,9 @@ class BedwarsGame {
     this.currentMode = mode;
     this.currentTeamSize = teamSize;
     this.currentDifficulty = difficulty;
-    if (mode === 'survival_war') {
+    if (mode === 'gun_battle') {
+      this.currentMap = 'gun_arena';
+    } else if (mode === 'survival_war') {
       this.currentMap = 'survival';
     } else if (mode === 'school_br') {
       this.currentMap = 'school';
@@ -325,13 +339,14 @@ class BedwarsGame {
     const isSkyWars = (mode && mode.startsWith('skywars'));
     const isSchoolBR = (mode === 'school_br');
     const isSurvivalWar = (mode === 'survival_war');
+    const isGunBattle = (mode === 'gun_battle');
 
     this.survivalDuelStarted = false;
     this.survivalDuelTimer = 300; // 5 minutes survival before 4-team duel
 
     this.generatorManager = new GeneratorManager(this.scene);
     this.generators = this.generatorManager; // Alias
-    if (!isPvp && !isSkyWars && !isSchoolBR && !isSurvivalWar) {
+    if (!isPvp && !isSkyWars && !isSchoolBR && !isSurvivalWar && !isGunBattle) {
       this.generatorManager.initSpawners(mode);
     }
 
@@ -340,14 +355,14 @@ class BedwarsGame {
     } else {
       this.shopManager.player = this.player;
     }
-    if (!isPvp && !isSkyWars && !isSchoolBR && !isSurvivalWar) {
+    if (!isPvp && !isSkyWars && !isSchoolBR && !isSurvivalWar && !isGunBattle) {
       this.shopManager.initVillagerNPCs(mode);
     }
     window.shopManager = this.shopManager;
 
     const resDisplay = document.getElementById('resources-display');
     if (resDisplay) {
-      resDisplay.style.display = (isPvp || isSkyWars || isSchoolBR || isSurvivalWar) ? 'none' : 'flex';
+      resDisplay.style.display = (isPvp || isSkyWars || isSchoolBR || isSurvivalWar || isGunBattle) ? 'none' : 'flex';
     }
 
     // 5. Spawn Bots & Configure Equipment based on Mode
@@ -450,6 +465,58 @@ class BedwarsGame {
           spawnChestPos: { x: 0, y: 1, z: -35 },
           initialBedPos: { x: 0, y: 1, z: -29 },
           initialState: 'LOOT_CHEST'
+        }));
+      }
+    } else if (isGunBattle) {
+      // 2 Teams, 8 per Team (Player + 7 Red Bots vs 8 Blue Bots)
+      this.teams = ['red', 'blue'];
+      const gunIds = ['gun_rifle', 'gun_sniper', 'gun_shotgun', 'gun_smg', 'gun_rpg'];
+
+      this.player.position.set(0, 1.2, 27);
+      this.player.spawnPoint = new THREE.Vector3(0, 1.2, 27);
+      this.player.velocity.set(0, 0, 0);
+      this.player.onGround = false;
+      this.player.yaw = 0;
+      this.player.pitch = 0;
+      this.player.armorTier = 'iron';
+      this.player.hotbar = [
+        { id: 'gun_rifle', name: 'AK-47 突击步枪', type: 'gun', gunId: 'gun_rifle', damage: 4, count: 1 },
+        null, null, null, null, null, null, null, null
+      ];
+      this.player.updateHUD();
+      this.player.updateHeldItemVisual();
+
+      // 7 Red Teammates
+      for (let i = 1; i <= 7; i++) {
+        const rx = -10 + i * 2.5;
+        const rz = 26 + (i % 2) * 2;
+        const gId = gunIds[i % gunIds.length];
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: `red_gun_${i}`,
+          name: `红队突击${i}号`,
+          team: 'red',
+          difficulty,
+          gunId: gId,
+          spawnPos: { x: rx, y: 1.2, z: rz },
+          initialState: 'CAPTURE_ZONE',
+          initialArmor: 'iron'
+        }));
+      }
+
+      // 8 Blue Enemies
+      for (let i = 1; i <= 8; i++) {
+        const bx = -11 + i * 2.5;
+        const bz = -28 + (i % 2) * 2;
+        const gId = gunIds[(i + 2) % gunIds.length];
+        this.bots.push(new Bot(this.scene, this.world, {
+          id: `blue_gun_${i}`,
+          name: `蓝队特战${i}号`,
+          team: 'blue',
+          difficulty,
+          gunId: gId,
+          spawnPos: { x: bx, y: 1.2, z: bz },
+          initialState: 'CAPTURE_ZONE',
+          initialArmor: 'iron'
         }));
       }
     } else if (isSurvivalWar) {
@@ -671,14 +738,17 @@ class BedwarsGame {
     const sbTitleEl = document.getElementById('scoreboard-title');
     const modeTitleEl = document.getElementById('sb-mode-title');
     if (sbTitleEl) {
-      if (isSurvivalWar) sbTitleEl.innerText = 'SURVIVAL WAR';
+      if (isGunBattle) sbTitleEl.innerText = 'GUN BATTLE';
+      else if (isSurvivalWar) sbTitleEl.innerText = 'SURVIVAL WAR';
       else if (isSchoolBR) sbTitleEl.innerText = 'BATTLE ROYALE';
       else if (isPvp) sbTitleEl.innerText = '1V1 DUEL';
       else if (isSkyWars) sbTitleEl.innerText = 'SKY WARS';
       else sbTitleEl.innerText = 'BED WARS';
     }
     if (modeTitleEl) {
-      if (isSurvivalWar) {
+      if (isGunBattle) {
+        modeTitleEl.innerText = '🔫 方块枪战 · 8v8 抢占ABCDE';
+      } else if (isSurvivalWar) {
         modeTitleEl.innerText = '🌲 生存战争 · 16人4队决战';
       } else if (isSchoolBR) {
         modeTitleEl.innerText = '🐔 校园吃鸡 · 16人混战';
@@ -903,7 +973,13 @@ class BedwarsGame {
       this.lastTime = performance.now();
       lockPointer();
 
-      if (this.currentMode === 'survival_war') {
+      if (this.currentMode === 'gun_battle') {
+        this.addChatMessage('§b[方块枪战 8v8] 比赛开始！每队 8 人争夺 A B C D E 五个 2×2 占领区！');
+        this.addChatMessage('§e站在区上 5 秒即可占领，率先占领全部 5 个区的队伍获胜！按 §bG §e随时切换 5 种枪械！');
+        if (window.gunBattle) {
+          setTimeout(() => window.gunBattle.openModal(), 200);
+        }
+      } else if (this.currentMode === 'survival_war') {
         this.addChatMessage('§a[生存战争] 16人已分散降临半径300格荒野地表！');
         this.addChatMessage('§e按照原版生存规则砍树、挖矿、搜箱升级，按 §bC §e打开原版合成台升级神装！');
         this.addChatMessage('§65分钟后全员将分为 4 队传送进入高空决斗场决一胜负，最后存活队伍获胜！');
@@ -1121,6 +1197,8 @@ class BedwarsGame {
   }
 
   onFinalKill(team, bot, killer = null) {
+    if (this.currentMode === 'gun_battle') return;
+
     if (this.currentMode === 'survival_war') {
       if (killer && (killer.includes('玩家') || killer === '你')) {
         this.kills++;
@@ -1186,6 +1264,8 @@ class BedwarsGame {
   }
 
   checkMatchOutcome() {
+    if (this.currentMode === 'gun_battle') return;
+
     if (this.currentMode === 'survival_war') {
       if (!this.survivalDuelStarted) return;
       let redAlive = (this.player && !this.player.isDead) ? 1 : 0;
@@ -1269,6 +1349,26 @@ class BedwarsGame {
     this.isGameRunning = false;
     window.soundManager.playVictory();
 
+    if (this.currentMode === 'gun_battle') {
+      this.showBigBanner('§6★ 方块枪战 · 红队胜利！ ★', '红队率先占领全部 A B C D E 五个据点！');
+      setTimeout(() => {
+        if (document.exitPointerLock) document.exitPointerLock();
+        const modal = document.getElementById('gameover-modal');
+        const title = document.getElementById('modal-title');
+        const stats = document.getElementById('modal-stats');
+        if (modal && title && stats) {
+          title.innerHTML = '§6★ 方块枪战 · 红队胜利！ ★';
+          stats.innerHTML = `
+            🏆 获胜阵营: 红队 (8v8 占领胜利)<br>
+            🔫 个人击杀: ${this.kills}<br>
+            ⏱️ 比赛用时: ${Math.floor(this.matchTime)} 秒
+          `;
+          modal.style.display = 'block';
+        }
+      }, 2000);
+      return;
+    }
+
     if (this.currentMode === 'survival_war') {
       this.showBigBanner('§6★ 生存战争 · 终极胜利！ ★', '红队成为4组决斗场最后存活的王者之师！');
       setTimeout(() => {
@@ -1333,6 +1433,25 @@ class BedwarsGame {
 
   defeat() {
     this.isGameRunning = false;
+
+    if (this.currentMode === 'gun_battle') {
+      this.showBigBanner('§c方块枪战 · 蓝队胜利！', '蓝队率先占领了全部 A B C D E 五个据点！');
+      setTimeout(() => {
+        if (document.exitPointerLock) document.exitPointerLock();
+        const modal = document.getElementById('gameover-modal');
+        const title = document.getElementById('modal-title');
+        const stats = document.getElementById('modal-stats');
+        if (modal && title && stats) {
+          title.innerHTML = '§c蓝队占领胜利';
+          stats.innerHTML = `
+            个人击杀: ${this.kills}<br>
+            比赛用时: ${Math.floor(this.matchTime)} 秒
+          `;
+          modal.style.display = 'block';
+        }
+      }, 2000);
+      return;
+    }
 
     if (this.currentMode === 'survival_war') {
       this.showBigBanner('§c红队全员阵亡！', '红队已被淘汰出决斗场！');
@@ -1459,6 +1578,32 @@ class BedwarsGame {
     const finalKillsEl = document.getElementById('sb-final-kills');
     const bedsEl = document.getElementById('sb-beds');
     const teamsContainer = document.getElementById('sb-teams-container');
+
+    if (this.currentMode === 'gun_battle') {
+      if (diaTimerEl && diaTimerEl.parentElement) diaTimerEl.parentElement.style.display = 'none';
+      if (emeTimerEl && emeTimerEl.parentElement) emeTimerEl.parentElement.style.display = 'none';
+      if (killsEl) killsEl.innerText = this.kills;
+      if (finalKillsEl && finalKillsEl.parentElement) finalKillsEl.parentElement.style.display = 'none';
+      if (bedsEl && bedsEl.parentElement) bedsEl.parentElement.style.display = 'none';
+
+      if (teamsContainer && this.world && this.world.gunZones) {
+        const zones = this.world.gunZones;
+        const redCount = zones.filter(z => z.owner === 'red').length;
+        const blueCount = zones.filter(z => z.owner === 'blue').length;
+        const pills = zones.map(z => {
+          const col = z.owner === 'red' ? '#ef4444' : (z.owner === 'blue' ? '#3b82f6' : '#64748b');
+          const pct = (z.owner === null && z.progress > 0) ? ` ${Math.floor((z.progress / 5) * 100)}%` : '';
+          return `<span style="display:inline-block;padding:2px 6px;margin:2px;border-radius:4px;background:${col};color:#fff;font-weight:bold;font-size:12px;">${z.id}${pct}</span>`;
+        }).join('');
+        teamsContainer.innerHTML = `
+          <div style="font-size:13px;color:#38bdf8;font-weight:bold;margin-bottom:4px;">按 <b>G</b> 切换 5 种枪械</div>
+          <div style="margin-bottom:6px;">${pills}</div>
+          <div class="sb-team red"><span>[R] 红队 (8人):</span><span style="color:#f87171;font-weight:bold;">${redCount} / 5 区</span></div>
+          <div class="sb-team blue"><span>[B] 蓝队 (8人):</span><span style="color:#60a5fa;font-weight:bold;">${blueCount} / 5 区</span></div>
+        `;
+      }
+      return;
+    }
 
     if (this.currentMode === 'survival_war') {
       if (diaTimerEl && diaTimerEl.parentElement) diaTimerEl.parentElement.style.display = 'none';
@@ -1662,6 +1807,9 @@ class BedwarsGame {
 
         if (this.currentMode === 'survival_war' && window.survivalUI) {
           window.survivalUI.updateFurnaces(dt);
+        }
+        if (this.currentMode === 'gun_battle' && window.gunBattle) {
+          window.gunBattle.updateZones(dt);
         }
 
         // End Realm Boss initial awakening: 5 minutes (300 seconds) after match starts

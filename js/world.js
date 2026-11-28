@@ -159,6 +159,12 @@ class VoxelWorld {
       this.scene.remove(this.borderMesh);
       this.borderMesh = null;
     }
+    if (this.gunZones) {
+      for (const z of this.gunZones) {
+        if (z.sprite) this.scene.remove(z.sprite);
+      }
+      this.gunZones = [];
+    }
     if (this.instancedMeshes) {
       for (const im of this.instancedMeshes) {
         this.scene.remove(im);
@@ -834,7 +840,9 @@ class VoxelWorld {
 
     this.isGenerating = true;
 
-    if (mode === 'survival_war' || mapType === 'survival') {
+    if (mode === 'gun_battle' || mapType === 'gun_arena') {
+      this.generateGunBattleMap();
+    } else if (mode === 'survival_war' || mapType === 'survival') {
       this.generateSurvivalWorld();
     } else if (mode === 'school_br' || mapType === 'school') {
       this.generateSchoolMap();
@@ -2163,6 +2171,179 @@ class VoxelWorld {
         this.setBlock(cx + x, cy + 1, cz + z, (x === 0 && z === 0) ? 'GLOWSTONE' : 'QUARTZ', false);
       }
     }
+  }
+
+  // =========================================================
+  // 6. Block Gun Battle Arena (8v8, ABCDE 2x2 Zones + Tactical Cover)
+  // =========================================================
+  generateGunBattleMap() {
+    this.bedStatus = { red: false, blue: false, green: false, yellow: false };
+    const halfW = 38;
+    const halfL = 32;
+
+    // 1. Arena Floor & Perimeter Walls
+    for (let x = -halfW; x <= halfW; x++) {
+      for (let z = -halfL; z <= halfL; z++) {
+        let floorType = 'STONE_BRICK';
+        if (z >= 23) floorType = (Math.abs(x) <= 8) ? 'RED_WOOL' : 'STONE';
+        else if (z <= -23) floorType = (Math.abs(x) <= 8) ? 'BLUE_WOOL' : 'STONE';
+        else if ((Math.abs(x) + Math.abs(z)) % 8 === 0) floorType = 'MOSSY_STONE_BRICK';
+
+        this.setBlock(x, 0, z, floorType, false);
+        this.setBlock(x, -1, z, 'OBSIDIAN', false);
+
+        // Perimeter Walls
+        if (Math.abs(x) === halfW || Math.abs(z) === halfL) {
+          for (let y = 1; y <= 5; y++) {
+            const wType = (y === 5) ? 'OBSIDIAN' : (y === 3 && (x + z) % 4 === 0 ? 'GLOWSTONE' : 'STONE_BRICK');
+            this.setBlock(x, y, z, wType, false);
+          }
+        }
+      }
+    }
+
+    // 2. Define 5 Capture Zones (A, B, C, D, E), each EXACTLY 2x2 blocks!
+    const zoneDefs = [
+      { id: 'A', x0: -25, z0: 0 },
+      { id: 'B', x0: -13, z0: -10 },
+      { id: 'C', x0: -1, z0: -1 },
+      { id: 'D', x0: 12, z0: 9 },
+      { id: 'E', x0: 24, z0: 0 }
+    ];
+    this.gunZones = zoneDefs.map(def => {
+      for (let dx = 0; dx <= 1; dx++) {
+        for (let dz = 0; dz <= 1; dz++) {
+          this.setBlock(def.x0 + dx, 0, def.z0 + dz, 'QUARTZ', false);
+        }
+      }
+      const zone = {
+        id: def.id,
+        x0: def.x0,
+        z0: def.z0,
+        cx: def.x0 + 0.5,
+        cz: def.z0 + 0.5,
+        owner: null,          // null | 'red' | 'blue'
+        capturingTeam: null,  // 'red' | 'blue' | null
+        progress: 0           // 0 .. 5.0 seconds
+      };
+      this.createGunZoneMarker(zone);
+      return zone;
+    });
+
+    // 3. Tactical Cover: Spawn Barriers, Wooden Crate Stacks, L-Walls, Mid Pillars & Side Sniper Catwalks
+    const buildWall = (x1, z1, x2, z2, h, mat = 'STONE_BRICK') => {
+      for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
+        for (let z = Math.min(z1, z2); z <= Math.max(z1, z2); z++) {
+          for (let y = 1; y <= h; y++) {
+            this.setBlock(x, y, z, mat, false);
+          }
+        }
+      }
+    };
+
+    // Red & Blue Spawn Cover Walls
+    buildWall(-7, 21, -2, 21, 2, 'STONE_BRICK');
+    buildWall(2, 21, 7, 21, 2, 'STONE_BRICK');
+    buildWall(-7, -21, -2, -21, 2, 'STONE_BRICK');
+    buildWall(2, -21, 7, -21, 2, 'STONE_BRICK');
+
+    // Crates & Cover Bunkers around A, B, C, D, E Zones
+    const crates = [
+      // Around C (center)
+      [-5, -4], [-5, 4], [4, -4], [4, 4],
+      // Around A & E flanks
+      [-28, -4], [-21, 4], [-21, -5],
+      [27, 4], [20, -4], [20, 5],
+      // Around B & D
+      [-16, -14], [-9, -6], [-17, -6],
+      [15, 13], [8, 5], [16, 5],
+      // Mid-lane waist-high & tall tactical blocks
+      [-8, 13], [7, -13], [-19, 13], [18, -13],
+      [0, 11], [0, -11], [-30, 10], [29, -10]
+    ];
+    for (const [cx, cz] of crates) {
+      buildWall(cx, cz, cx + 1, cz + 1, 2, 'OAK_PLANKS');
+    }
+
+    // L-shaped stone cover walls near midlanes
+    buildWall(-10, 2, -7, 2, 2, 'MOSSY_STONE_BRICK');
+    buildWall(-7, 2, -7, 5, 2, 'MOSSY_STONE_BRICK');
+    buildWall(7, -2, 10, -2, 2, 'MOSSY_STONE_BRICK');
+    buildWall(7, -5, 7, -2, 2, 'MOSSY_STONE_BRICK');
+
+    // Side Elevated Sniper Platforms (x = -33..-30 and x = 30..33, y = 2 with step stairs)
+    for (const sx of [-32, 30]) {
+      buildWall(sx, -8, sx + 2, 8, 2, 'STONE_BRICK');
+      // Low parapet on inner edge
+      const innerX = sx < 0 ? sx + 2 : sx;
+      buildWall(innerX, -6, innerX, 6, 3, 'QUARTZ');
+      // Stairs on North & South ends
+      for (let dx = 0; dx <= 2; dx++) {
+        this.setBlock(sx + dx, 1, 9, 'OAK_PLANKS', false);
+        this.setBlock(sx + dx, 1, -9, 'OAK_PLANKS', false);
+      }
+    }
+  }
+
+  createGunZoneMarker(zone) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.position.set(zone.cx, 4.2, zone.cz);
+    sprite.scale.set(3.6, 1.8, 1);
+    this.scene.add(sprite);
+    zone.sprite = sprite;
+    zone.canvas = canvas;
+    this.updateGunZoneVisual(zone, true);
+  }
+
+  updateGunZoneVisual(zone, forceBlocks = false) {
+    if (!zone) return;
+    if (forceBlocks || zone._lastOwner !== zone.owner) {
+      zone._lastOwner = zone.owner;
+      const bType = zone.owner === 'red' ? 'RED_WOOL' : (zone.owner === 'blue' ? 'BLUE_WOOL' : 'QUARTZ');
+      for (let dx = 0; dx <= 1; dx++) {
+        for (let dz = 0; dz <= 1; dz++) {
+          this.setBlock(zone.x0 + dx, 0, zone.z0 + dz, bType, false);
+        }
+      }
+    }
+    if (!zone.canvas || !zone.sprite) return;
+    const ctx = zone.canvas.getContext('2d');
+    ctx.clearRect(0, 0, 256, 128);
+
+    const bg = zone.owner === 'red' ? 'rgba(185, 28, 28, 0.88)'
+      : zone.owner === 'blue' ? 'rgba(29, 78, 216, 0.88)'
+      : 'rgba(15, 23, 42, 0.85)';
+    const border = zone.capturingTeam === 'red' ? '#f87171'
+      : zone.capturingTeam === 'blue' ? '#60a5fa'
+      : '#e2e8f0';
+
+    ctx.fillStyle = bg;
+    ctx.fillRect(12, 12, 232, 104);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = border;
+    ctx.strokeRect(12, 12, 232, 104);
+
+    ctx.font = 'bold 42px "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    const ownerTxt = zone.owner === 'red' ? '红' : (zone.owner === 'blue' ? '蓝' : '中立');
+    ctx.fillText(`[${zone.id}] ${ownerTxt}`, 128, 62);
+
+    // 5s capture progress bar
+    const pct = Math.max(0, Math.min(1, zone.progress / 5.0));
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(28, 80, 200, 18);
+    if (pct > 0) {
+      ctx.fillStyle = zone.capturingTeam === 'red' ? '#ef4444' : '#3b82f6';
+      ctx.fillRect(28, 80, 200 * pct, 18);
+    }
+    zone.sprite.material.map.needsUpdate = true;
   }
 }
 

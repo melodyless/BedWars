@@ -152,7 +152,10 @@ class Player {
     const currentItem = this.hotbar[this.selectedSlot];
     if (!currentItem) return;
 
-    if (currentItem.type === 'weapon') {
+    if (currentItem.type === 'gun') {
+      const gunMesh = window.createGunModel ? window.createGunModel(currentItem.gunId || currentItem.id) : null;
+      if (gunMesh) this.itemHolder.add(gunMesh);
+    } else if (currentItem.type === 'weapon') {
       if (currentItem.id === 'mace' || currentItem.weaponType === 'mace') {
         const mace = window.WeaponModelBuilder ?
           window.WeaponModelBuilder.createMace() : null;
@@ -250,6 +253,14 @@ class Player {
 
       if (e.code === 'KeyQ') {
         this.dropItem();
+        return;
+      }
+
+      if (e.code === 'KeyG') {
+        if (window.game && window.game.currentMode === 'gun_battle' && window.gunBattle) {
+          if (window.gunBattle.isModalOpen) window.gunBattle.closeModal();
+          else window.gunBattle.openModal();
+        }
         return;
       }
 
@@ -545,7 +556,6 @@ class Player {
   startAttackOrMine() {
     this.triggerSwing();
 
-    // Check entity attack first (Bot)
     const dir = new THREE.Vector3(
       -Math.sin(this.yaw) * Math.cos(this.pitch),
       Math.sin(this.pitch),
@@ -557,6 +567,18 @@ class Player {
       this.position.y + this.eyeHeight,
       this.position.z
     );
+
+    // Gun Battle: Fire selected firearm!
+    const heldItem = this.hotbar[this.selectedSlot];
+    if (heldItem && heldItem.type === 'gun' && window.fireGun && window.GUN_MAP) {
+      const now = performance.now() / 1000;
+      const gunCfg = window.GUN_MAP[heldItem.gunId || heldItem.id] || window.GUN_MAP.gun_rifle;
+      if (!this._lastGunFireTime || now - this._lastGunFireTime >= gunCfg.fireRate) {
+        this._lastGunFireTime = now;
+        window.fireGun(this, origin, dir, gunCfg.id, true);
+      }
+      return;
+    }
 
     // Check hit on enemy Bots
     const botList = (window.game && window.game.bots && window.game.bots.length > 0) ?
@@ -1694,13 +1716,14 @@ class Player {
       window.game.addChatMessage('§c玩家 被 蓝队人机 击杀了！');
     }
 
-    // Check if Survival War (respawns during 10-min survival phase, eliminated in duel arena)
+    // Check if Survival War or Gun Battle respawn
     const isSurvivalRespawn = (window.game && window.game.currentMode === 'survival_war' && !window.game.survivalDuelStarted);
+    const isGunRespawn = (window.game && window.game.currentMode === 'gun_battle');
 
-    // Check if Red Bed is alive (or Survival phase respawn)
-    if (this.world.bedStatus.red || isSurvivalRespawn) {
+    // Check if Red Bed is alive (or Survival/Gun Battle respawn)
+    if (this.world.bedStatus.red || isSurvivalRespawn || isGunRespawn) {
       // Show respawn countdown
-      this.respawnTimer = 5;
+      this.respawnTimer = isGunRespawn ? 3 : 5;
       const respawnEl = document.getElementById('respawn-overlay');
       const timerEl = document.getElementById('respawn-timer');
       if (respawnEl) respawnEl.style.display = 'flex';
@@ -1873,6 +1896,16 @@ class Player {
 
     const moveLen = Math.hypot(moveX, moveZ);
     let moveSpeed = this.keys.sneak ? this.sneakSpeed : this.walkSpeed;
+    const heldNow = this.hotbar[this.selectedSlot];
+    if (heldNow && heldNow.type === 'gun' && window.GUN_MAP) {
+      const gCfg = window.GUN_MAP[heldNow.gunId || heldNow.id];
+      if (gCfg && gCfg.speedMult) moveSpeed *= gCfg.speedMult;
+      // Sniper Scope Zoom on Right-Click
+      if (gCfg && gCfg.scopeFov && this.isRightMouseDown) {
+        this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, gCfg.scopeFov, dt * 14);
+        this.camera.updateProjectionMatrix();
+      }
+    }
     if (this.effects.speed > 0) {
       moveSpeed *= (this.keys.sneak ? 1.25 : 1.40);
     }

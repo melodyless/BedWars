@@ -147,6 +147,8 @@ class Bot {
     this.state = config.initialState || 'GATHER';
     if (config.initialWeapon) this.weaponTier = config.initialWeapon;
     if (config.initialArmor) this.armorTier = config.initialArmor;
+    this.gunId = config.gunId || null;
+    this.gunCooldown = 0;
     if (config.hasGapple !== undefined) {
       this.hasGapple = config.hasGapple;
       this.goldenApples = config.hasGapple;
@@ -537,7 +539,12 @@ class Bot {
         this.swordMesh.parent.remove(this.swordMesh);
       }
       const isEnchanted = !!(window.game && window.game.teamUpgrades && window.game.teamUpgrades[this.team] && window.game.teamUpgrades[this.team].sharpness > 0);
-      if (this.weaponTier === 'mace') {
+      if (this.gunId && window.createGunModel) {
+        this.swordMesh = window.createGunModel(this.gunId);
+        this.swordMesh.position.set(0, -0.58, 0.25);
+        this.swordMesh.rotation.set(0, Math.PI, 0);
+        this.rightArm.add(this.swordMesh);
+      } else if (this.weaponTier === 'mace') {
         this.swordMesh = window.WeaponModelBuilder ? window.WeaponModelBuilder.createMace({ isBot: true }) : null;
       } else if (window.WeaponModelBuilder) {
         this.swordMesh = window.WeaponModelBuilder.createSword(this.weaponTier, { isBot: true, enchanted: isEnchanted });
@@ -1081,6 +1088,15 @@ class Bot {
       window.game.addChatMessage(`${myTeam.prefix}${this.name} 被 §f${killer} §r击杀了！`);
     }
 
+    // In Gun Battle: 3s respawn at team base and return to zone capture
+    if (window.game && window.game.currentMode === 'gun_battle') {
+      window.game.addChatMessage(`${myTeam.prefix}${this.name} 将在 3 秒后重返枪战！`);
+      setTimeout(() => {
+        if (window.game && window.game.isGameRunning) this.respawn();
+      }, 3000);
+      return;
+    }
+
     // In School Battle Royale, no beds, instant permanent elimination
     if (window.game && window.game.currentMode === 'school_br') {
       window.game.onFinalKill(this.team, this, killer);
@@ -1115,7 +1131,11 @@ class Bot {
   respawn() {
     this.isDead = false;
     this.health = this.maxHealth;
-    if (window.game && window.game.currentMode === 'survival_war' && !window.game.survivalDuelStarted && this.world && typeof this.world.getSurvivalHeight === 'function') {
+    if (window.game && window.game.currentMode === 'gun_battle') {
+      this.position.copy(this.spawnPoint);
+      this.state = 'CAPTURE_ZONE';
+      this.targetZone = null;
+    } else if (window.game && window.game.currentMode === 'survival_war' && !window.game.survivalDuelStarted && this.world && typeof this.world.getSurvivalHeight === 'function') {
       const ang = Math.random() * Math.PI * 2;
       const rad = 40 + Math.random() * 210;
       const rx = Math.round(Math.cos(ang) * rad);
@@ -1694,6 +1714,13 @@ class Bot {
 
   // Strategic Decision Maker: Evaluates whether to Gather Diamonds, Rush Emeralds, or Attack Enemy Bed
   chooseNextObjective(fromShop = false) {
+    // Gun Battle Mode: Always rush and capture ABCDE zones!
+    if (window.game && window.game.currentMode === 'gun_battle') {
+      this.state = 'CAPTURE_ZONE';
+      this.stateTimer = 0;
+      return;
+    }
+
     // Survival War Mode: Gather & upgrade during 10-min survival phase; hunt enemy teams in Duel Arena!
     if (window.game && window.game.currentMode === 'survival_war') {
       if (window.game.survivalDuelStarted) {
@@ -1970,6 +1997,53 @@ class Bot {
     }
 
     switch (this.state) {
+      case 'CAPTURE_ZONE': {
+        this.gunCooldown = Math.max(0, (this.gunCooldown || 0) - dt);
+        const zones = this.world && this.world.gunZones;
+        if (!zones || zones.length === 0) break;
+
+        // 1. Pick an unowned zone (spread bots across A, B, C, D, E)
+        if (!this.targetZone || this.targetZone.owner === this.team) {
+          const unowned = zones.filter(z => z.owner !== this.team);
+          if (unowned.length > 0) {
+            unowned.sort((a, b) =>
+              Math.hypot(a.cx - this.position.x, a.cz - this.position.z) -
+              Math.hypot(b.cx - this.position.x, b.cz - this.position.z)
+            );
+            const idxHash = (this.id || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+            this.targetZone = unowned[idxHash % Math.min(3, unowned.length)];
+          } else {
+            this.targetZone = zones[0];
+          }
+        }
+
+        // 2. Move onto the 2x2 zone and hold position for 5s capture
+        const tz = this.targetZone;
+        const dZone = Math.hypot(tz.cx - this.position.x, tz.cz - this.position.z);
+        if (dZone > 0.7) {
+          this.moveTo(tz.cx, tz.cz, this.sprintSpeed);
+        } else {
+          this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, 0, 0.35);
+          this.velocity.z = THREE.MathUtils.lerp(this.velocity.z, 0, 0.35);
+        }
+
+        // 3. Fire gun at visible enemies while moving or holding zone!
+        if (target && dist < 42.0 && this.hasLineOfSight(target.pos)) {
+          const aimDx = target.pos.x - this.position.x;
+          const aimDz = target.pos.z - this.position.z;
+          this.targetYaw = Math.atan2(aimDx, aimDz);
+          if (this.gunCooldown <= 0 && window.fireGun && window.GUN_MAP) {
+            const gunCfg = window.GUN_MAP[this.gunId || 'gun_rifle'] || window.GUN_MAP.gun_rifle;
+            this.gunCooldown = Math.max(0.28, gunCfg.fireRate * 1.6);
+            const origin = new THREE.Vector3(this.position.x, this.position.y + 1.45, this.position.z);
+            const aimTarget = new THREE.Vector3(target.pos.x, target.pos.y + 1.15, target.pos.z);
+            const dir = aimTarget.sub(origin).normalize();
+            window.fireGun(this, origin, dir, gunCfg.id, false);
+          }
+        }
+        break;
+      }
+
       case 'SURVIVAL_GATHER': {
         if (window.game && window.game.survivalDuelStarted) {
           this.state = 'COMBAT';
