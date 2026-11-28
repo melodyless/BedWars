@@ -99,6 +99,7 @@ class Bot {
 
     // Equipment & Inventory (Starts with basic Wooden Sword & Leather Tunic, fair identical to player)
     this.armorTier = 'leather'; // 'leather', 'chain', 'iron', 'diamond'
+    this.armorSlots = null;     // Per-piece armor for Survival War: { helmet, chestplate, leggings, boots }
     this.weaponTier = 'wood'; // 'wood', 'stone', 'iron', 'diamond'
     this.damage = 4;
     this.woolCount = 36;
@@ -312,7 +313,16 @@ class Bot {
     ctx.textAlign = 'center';
 
     const swordName = this.weaponTier === 'mace' ? '重锤' : (this.weaponTier === 'diamond' ? '钻剑' : (this.weaponTier === 'iron' ? '铁剑' : (this.weaponTier === 'stone' ? '石剑' : '木剑')));
-    const armorName = this.armorTier === 'diamond' ? '钻甲' : (this.armorTier === 'iron' ? '铁甲' : (this.armorTier === 'chain' ? '链甲' : '皮甲'));
+    let armorName = this.armorTier === 'diamond' ? '钻甲' : (this.armorTier === 'iron' ? '铁甲' : (this.armorTier === 'chain' ? '链甲' : '皮甲'));
+    if (this.armorSlots) {
+      const vals = Object.values(this.armorSlots).filter(v => v !== 'none');
+      if (vals.length === 0) armorName = '无甲';
+      else if (vals.every(v => v === 'diamond') && vals.length === 4) armorName = '全钻';
+      else if (vals.includes('diamond') && vals.includes('iron')) armorName = '铁钻';
+      else if (vals.includes('diamond')) armorName = '半钻';
+      else if (vals.includes('iron')) armorName = '铁甲';
+      else armorName = '链甲';
+    }
     let roleTag = '';
     if (this.isTeammate) {
       const roleNameMap = {
@@ -397,6 +407,46 @@ class Bot {
   updateEquipmentVisuals() {
     // 1. Visually Distinct Armor Colors per Tier & Team
     const myTeam = this.teamData[this.team] || this.teamData.blue;
+
+    const tierColors = {
+      chain: { helmet: 0x607d8b, chest: 0x78909c, legs: 0x455a64 },
+      iron: { helmet: 0xf8fafc, chest: 0xe2e8f0, legs: 0xb0bec5 },
+      diamond: { helmet: 0x00e5ff, chest: 0x00d4ec, legs: 0x0097a7 }
+    };
+
+    if (this.armorSlots) {
+      // Piece-by-piece survival armor rendering (1 piece crafted = only that piece shown!)
+      const s = this.armorSlots;
+      this.flashMeshColor(this.headMesh, 0xffffff);
+      if (this.helmetMesh) {
+        this.helmetMesh.visible = (s.helmet !== 'none');
+        if (s.helmet !== 'none' && this.helmetMat && tierColors[s.helmet]) {
+          this.helmetMat.color.setHex(tierColors[s.helmet].helmet);
+        }
+      }
+      if (s.chestplate !== 'none' && tierColors[s.chestplate]) {
+        this.armorMat.color.setHex(tierColors[s.chestplate].chest);
+        this.torsoMesh.material = this.armorMat;
+      } else if (this.customSkinMats && this.customSkinMats.torso) {
+        this.torsoMesh.material = this.customSkinMats.torso;
+        this.flashMeshColor(this.torsoMesh, 0xffffff);
+      }
+      const legTier = s.leggings !== 'none' ? s.leggings : s.boots;
+      if (legTier !== 'none' && tierColors[legTier]) {
+        this.legMat.color.setHex(tierColors[legTier].legs);
+        this.leftLeg.material = this.legMat;
+        this.rightLeg.material = this.legMat;
+      } else if (this.customSkinMats) {
+        if (this.customSkinMats.leftLeg) { this.leftLeg.material = this.customSkinMats.leftLeg; this.flashMeshColor(this.leftLeg, 0xffffff); }
+        if (this.customSkinMats.rightLeg) { this.rightLeg.material = this.customSkinMats.rightLeg; this.flashMeshColor(this.rightLeg, 0xffffff); }
+      }
+      if (this.customSkinMats) {
+        if (this.customSkinMats.leftArm) { this.leftArm.material = this.customSkinMats.leftArm; this.flashMeshColor(this.leftArm, 0xffffff); }
+        if (this.customSkinMats.rightArm) { this.rightArm.material = this.customSkinMats.rightArm; this.flashMeshColor(this.rightArm, 0xffffff); }
+      }
+      this.updateNametag();
+      return;
+    }
 
     const isLeather = (this.armorTier === 'leather');
     let helmetColor = myTeam.colorHex;
@@ -962,9 +1012,25 @@ class Bot {
     if (this.isDead) return;
 
     let reduction = 0;
-    if (this.armorTier === 'chain') reduction = 0.3;
-    else if (this.armorTier === 'iron') reduction = 0.5;
-    else if (this.armorTier === 'diamond') reduction = 0.65;
+    if (this.armorSlots) {
+      const slotPts = {
+        helmet: { none: 0, chain: 1, iron: 2, diamond: 3 },
+        chestplate: { none: 0, chain: 3, iron: 6, diamond: 8 },
+        leggings: { none: 0, chain: 2, iron: 5, diamond: 6 },
+        boots: { none: 0, chain: 1, iron: 2, diamond: 3 }
+      };
+      const s = this.armorSlots;
+      const pts =
+        (slotPts.helmet[s.helmet] || 0) +
+        (slotPts.chestplate[s.chestplate] || 0) +
+        (slotPts.leggings[s.leggings] || 0) +
+        (slotPts.boots[s.boots] || 0);
+      reduction = Math.min(0.65, (pts / 20) * 0.65);
+    } else {
+      if (this.armorTier === 'chain') reduction = 0.3;
+      else if (this.armorTier === 'iron') reduction = 0.5;
+      else if (this.armorTier === 'diamond') reduction = 0.65;
+    }
 
     const teamProt = (window.game && window.game.teamUpgrades && window.game.teamUpgrades[this.team]) ? window.game.teamUpgrades[this.team].protection : 0;
     reduction = Math.min(0.85, reduction + teamProt * 0.15);
@@ -1927,28 +1993,41 @@ class Bot {
         }
         this.moveTo(this.survWp.x, this.survWp.z, this.speed * 0.92);
 
-        // Simulate vanilla survival mining & progressive gear crafting over time
+        // Simulate vanilla survival mining & piece-by-piece gear crafting over the 5-min phase
+        if (!this.armorSlots) {
+          this.armorSlots = { helmet: 'none', chestplate: 'none', leggings: 'none', boots: 'none' };
+        }
         if (!this._survCraftTimer) this._survCraftTimer = 0;
         this._survCraftTimer += dt;
-        if (this._survCraftTimer >= 8.0) {
+        if (this._survCraftTimer >= 18.0) {
           this._survCraftTimer = 0;
           this._survLevel = (this._survLevel || 0) + 1;
-          if (this._survLevel === 2) {
+          if (this._survLevel === 1) {
             this.weaponTier = 'stone';
+          } else if (this._survLevel === 3) {
+            this.armorSlots.boots = 'iron';
           } else if (this._survLevel === 5) {
-            this.armorTier = 'chain';
             this.weaponTier = 'iron';
+            this.armorSlots.helmet = 'iron';
+          } else if (this._survLevel === 7) {
+            this.armorSlots.leggings = 'iron';
           } else if (this._survLevel === 9) {
-            this.armorTier = 'iron';
-            this.hasGapple = Math.min(3, (this.hasGapple || 0) + 1);
+            this.armorSlots.chestplate = 'iron';
+            this.hasGapple = Math.min(2, (this.hasGapple || 0) + 1);
             this.goldenApples = this.hasGapple;
-          } else if (this._survLevel === 14) {
+          } else if (this._survLevel === 11) {
+            // Found cave diamonds: craft 1 piece at a time (weapon or 1 armor piece, NOT full set!)
             this.weaponTier = 'diamond';
             this.hasBow = true;
-          } else if (this._survLevel >= 18) {
-            this.armorTier = 'diamond';
-            this.hasGapple = Math.min(4, (this.hasGapple || 0) + 1);
+          } else if (this._survLevel === 13) {
+            this.armorSlots.boots = 'diamond';
+          } else if (this._survLevel === 15) {
+            this.armorSlots.helmet = 'diamond';
+            this.hasGapple = Math.min(3, (this.hasGapple || 0) + 1);
             this.goldenApples = this.hasGapple;
+          } else if (this._survLevel >= 17 && this._survLevel <= 19) {
+            if (this._survLevel === 17) this.armorSlots.leggings = 'diamond';
+            if (this._survLevel === 19) this.armorSlots.chestplate = 'diamond';
           }
           this.updateEquipmentVisuals();
         }
