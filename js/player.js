@@ -75,6 +75,7 @@ class Player {
     };
     this.isInvisible = false;
     this.regenIntervalTimer = 0;
+    this.passiveRegenTimer = 0;
     this.lastAttackTime = 0;
 
     // Input States
@@ -1812,6 +1813,19 @@ class Player {
 
     // 1. Potion Effects & Mining Progress Update
     this.updateEffects(dt);
+
+    // Passive natural regeneration: +3 HP per second
+    if (this.health > 0 && this.health < this.maxHealth) {
+      this.passiveRegenTimer += dt;
+      if (this.passiveRegenTimer >= 1.0) {
+        const ticks = Math.floor(this.passiveRegenTimer);
+        this.passiveRegenTimer -= ticks;
+        this.health = Math.min(this.maxHealth, this.health + ticks * 3);
+        this.updateHUD();
+      }
+    } else {
+      this.passiveRegenTimer = 0;
+    }
 
     if (this.isMining && this.miningBlock) {
       this.miningTimer += dt;
