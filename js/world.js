@@ -179,10 +179,19 @@ class VoxelWorld {
     } else {
       this.furnaces = new Map();
     }
+    if (this.minedKeys) {
+      this.minedKeys.clear();
+    } else {
+      this.minedKeys = new Set();
+    }
   }
 
   setBlock(x, y, z, type, canBreak = false, team = null) {
     const key = this.getKey(x, y, z);
+    if (type === 'AIR' && this.isGenerating) {
+      if (!this.minedKeys) this.minedKeys = new Set();
+      this.minedKeys.add(key);
+    }
     const existing = this.voxelMap.get(key);
     if (existing) {
       if (existing.mesh) this.scene.remove(existing.mesh);
@@ -312,6 +321,8 @@ class VoxelWorld {
       b.instancedMesh.instanceMatrix.needsUpdate = true;
     }
     this.voxelMap.delete(key);
+    if (!this.minedKeys) this.minedKeys = new Set();
+    this.minedKeys.add(key);
 
     // Reveal any adjacent neighbor blocks that were previously hidden
     const neighbors = [
@@ -320,9 +331,10 @@ class VoxelWorld {
       { x: b.x, y: b.y, z: b.z + 1 }, { x: b.x, y: b.y, z: b.z - 1 }
     ];
     for (const n of neighbors) {
+      const nKey = this.getKey(n.x, n.y, n.z);
       let nb = this.getBlock(n.x, n.y, n.z);
-      // Lazy underground generation for Survival War 300-radius terrain
-      if (!nb && this.mapType === 'survival' && n.y >= -6 && n.y < 16 && (n.x * n.x + n.z * n.z <= 300 * 300)) {
+      // Lazy underground generation ONLY for untouched underground cells (never refill mined or cave air!)
+      if (!nb && !this.minedKeys.has(nKey) && this.mapType === 'survival' && n.y >= -6 && n.y < 16 && (n.x * n.x + n.z * n.z <= 300 * 300)) {
         const surfH = this.getSurvivalHeight(n.x, n.z);
         if (n.y < surfH) {
           let ugType = 'STONE';
@@ -332,10 +344,10 @@ class VoxelWorld {
             ugBreak = false;
           } else {
             const r = Math.abs(Math.sin(n.x * 12.9898 + n.y * 78.233 + n.z * 37.719) * 43758.5453) % 1;
-            if (n.y <= -2 && r < 0.035) ugType = 'DIAMOND_ORE';
-            else if (n.y <= 0 && r < 0.075) ugType = 'GOLD_ORE';
-            else if (r < 0.14) ugType = 'IRON_ORE';
-            else if (r < 0.22) ugType = 'COAL_ORE';
+            if (n.y <= -3 && r < 0.008) ugType = 'DIAMOND_ORE';
+            else if (n.y <= -1 && r < 0.045) ugType = 'GOLD_ORE';
+            else if (r < 0.11) ugType = 'IRON_ORE';
+            else if (r < 0.18) ugType = 'COAL_ORE';
           }
           this.setBlock(n.x, n.y, n.z, ugType, ugBreak);
           continue;
